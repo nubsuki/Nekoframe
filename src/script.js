@@ -62,7 +62,7 @@ function updateStatsCard(stats, error = false, wsUrl = '') {  // Add wsUrl param
             </tr>
             <tr>
                 <th scope="row">GPU</th>
-                <td>${stats.gpu_name !== 'No NVIDIA GPU detected' ? '✅' : '❌'} ${stats.gpu_usage !== undefined ? '✅' : '❌'}</td>
+                <td>${stats.gpu_name !== 'No NVIDIA GPU detected' ? '✅' : '❌'} ${stats.gpu_usage !== undefined ? '✅' : '❌'} ${stats.gpu_temp !== undefined ? '✅' : '❌'}</td>
             </tr>
         </tbody>
     </table>`;

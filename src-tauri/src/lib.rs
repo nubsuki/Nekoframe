@@ -1,6 +1,7 @@
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{TrayIconBuilder, MouseButton, MouseButtonState, TrayIconEvent};
+use tauri::WindowEvent;
 
 #[tauri::command]
 fn get_ws_url() -> String {
@@ -49,6 +50,15 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+            if let Some(window) = app.get_webview_window("main") {
+                let window_handle = window.clone();
+                window.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        window_handle.hide().unwrap();
+                    }
+                });
+            }
 
             Ok(())
         })

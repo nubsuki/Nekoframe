@@ -8,12 +8,14 @@ use futures::StreamExt;
 use futures::SinkExt;
 use serde::Serialize;
 use nvml_wrapper::Nvml;
+use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
 
 #[derive(Serialize)]
 struct SystemStats {
     cpu_usage: f32,
     ram_usage: f32,
     gpu_usage: f32,
+    gpu_temp: f32,
     gpu_name: String,
     os_name: String,
     cpu_name: String,
@@ -28,7 +30,10 @@ async fn handle_socket(ws: WebSocket) {
     sys.refresh_all();
     
     // Get OS name
-    let os_name = System::name().unwrap_or_else(|| String::from("Unknown OS"));
+    let os_name = format!("{} {}",
+        System::name().unwrap_or_else(|| String::from("Unknown OS")),
+        System::os_version().unwrap_or_else(|| String::from("Unknown Version"))
+    );
     
     // Get CPU name
     let cpu_name = sys.cpus().first()
@@ -57,15 +62,23 @@ async fn handle_socket(ws: WebSocket) {
         let ram_usage: f32 = (sys.used_memory() as f32 / sys.total_memory() as f32 * 100.0).round();
         
         // Get GPU usage using the existing device handle
-        let gpu_usage = gpu_device.as_ref()
-            .and_then(|device| device.utilization_rates().ok())
-            .map(|utilization| utilization.gpu as f32)
-            .unwrap_or(0.0);
+        let (gpu_usage, gpu_temp) = gpu_device.as_ref()
+        .map(|device| {
+            let usage = device.utilization_rates()
+                .map(|utilization| utilization.gpu as f32)
+                .unwrap_or(0.0);
+            let temp = device.temperature(TemperatureSensor::Gpu)
+                .map(|temp| temp as f32)
+                .unwrap_or(0.0);
+            (usage, temp)
+        })
+        .unwrap_or((0.0, 0.0));
 
         let stats = SystemStats {
             cpu_usage,
             ram_usage,
             gpu_usage,
+            gpu_temp,
             gpu_name: gpu_name.clone(),
             os_name: os_name.clone(),
             cpu_name: cpu_name.clone(),
