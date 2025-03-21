@@ -34,18 +34,37 @@ function updateStatsCard(stats, error = false, wsUrl = '') {  // Add wsUrl param
     
     if (error || !stats) {
         content.innerHTML = `
-            <div style="color: red;">
-                Connection Error
-            </div>`;
+            <table>
+                <tbody>
+                    <tr>
+                        <th scope="row">Status</th>
+                        <td style="color: red;">Connection Error</td>
+                    </tr>
+                </tbody>
+            </table>`;
         return;
     }
 
     content.innerHTML = `
-        <div style="color: white; margin: 5px 0;">
-            WebSocket: ${wsUrl}<br>
-            CPU | Usage: ${stats.cpu_name ? '✅' : '❌'} ${stats.cpu_usage !== undefined ? '✅' : '❌'}<br>
-            RAM | Usage: ${stats.ram_amount ? '✅' : '❌'} ${stats.ram_usage !== undefined ? '✅' : '❌'}<br>
-            GPU | Usage: ${stats.gpu_name !== 'No NVIDIA GPU detected' ? '✅' : '❌'} ${stats.gpu_usage !== undefined ? '✅' : '❌'}<br>
-        </div>`;
+    <table>
+        <tbody>
+            <tr>
+                <th scope="row">WebSocket</th>
+                <td>${wsUrl}</td>
+            </tr>
+            <tr>
+                <th scope="row">CPU</th>
+                <td>${stats.cpu_name ? '✅' : '❌'} ${stats.cpu_usage !== undefined ? '✅' : '❌'}</td>
+            </tr>
+            <tr>
+                <th scope="row">RAM</th>
+                <td>${stats.ram_amount ? '✅' : '❌'} ${stats.ram_usage !== undefined ? '✅' : '❌'}</td>
+            </tr>
+            <tr>
+                <th scope="row">GPU</th>
+                <td>${stats.gpu_name !== 'No NVIDIA GPU detected' ? '✅' : '❌'} ${stats.gpu_usage !== undefined ? '✅' : '❌'}</td>
+            </tr>
+        </tbody>
+    </table>`;
 }
 

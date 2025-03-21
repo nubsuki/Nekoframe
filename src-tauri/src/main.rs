@@ -39,15 +39,12 @@ async fn handle_socket(ws: WebSocket) {
     let total_ram_gb = sys.total_memory() as f64 / (1024.0 * 1024.0 * 1024.0);
     let ram_amount = format!("{:.1} GB", total_ram_gb);
     
-    // Initialize NVIDIA GPU monitoring
-    let gpu_name = match Nvml::init() {
-        Ok(nvml) => {
-            match nvml.device_by_index(0) {
-                Ok(device) => device.name().unwrap_or_default(),
-                Err(_) => String::from("GPU not found"),
-            }
-        }
-        Err(_) => String::from("No NVIDIA GPU detected"),
+    // Initialize NVIDIA GPU 
+    let nvml = Nvml::init().ok();
+    let gpu_device = nvml.as_ref().and_then(|nvml| nvml.device_by_index(0).ok());
+    let gpu_name = match &gpu_device {
+        Some(device) => device.name().unwrap_or_default(),
+        None => String::from("GPU not found"),
     };
     
     loop {
@@ -59,21 +56,11 @@ async fn handle_socket(ws: WebSocket) {
         // Collect RAM usage
         let ram_usage: f32 = (sys.used_memory() as f32 / sys.total_memory() as f32 * 100.0).round();
         
-        // Get GPU usage
-        let gpu_usage = match Nvml::init() {
-            Ok(nvml) => {
-                match nvml.device_by_index(0) {
-                    Ok(device) => {
-                        match device.utilization_rates() {
-                            Ok(utilization) => utilization.gpu as f32,
-                            Err(_) => 0.0,
-                        }
-                    }
-                    Err(_) => 0.0,
-                }
-            }
-            Err(_) => 0.0,
-        };
+        // Get GPU usage using the existing device handle
+        let gpu_usage = gpu_device.as_ref()
+            .and_then(|device| device.utilization_rates().ok())
+            .map(|utilization| utilization.gpu as f32)
+            .unwrap_or(0.0);
 
         let stats = SystemStats {
             cpu_usage,
@@ -91,7 +78,7 @@ async fn handle_socket(ws: WebSocket) {
             break;
         }
 
-        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 }
 

@@ -29,3 +29,4 @@ tokio = { version = "1.44.1", features = ["full"] }
 tokio-tungstenite = "0.26.2"
 warp = "0.3.7"
 nvml-wrapper = "0.9.0"
+wmi = "0.15.1"

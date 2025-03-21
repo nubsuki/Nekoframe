@@ -2270,6 +2270,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.26.2",
  "warp",
+ "wmi",
 ]
 
 [[package]]
@@ -5391,6 +5392,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
 dependencies = [
  "bitflags 2.9.0",
+]
+
+[[package]]
+name = "wmi"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae33d16f05f9b4b819abe7a9472bad4acb17f5b5d52d3f422762ebec613c65a6"
+dependencies = [
+ "chrono",
+ "futures",
+ "log",
+ "serde",
+ "thiserror 2.0.12",
+ "windows 0.60.0",
+ "windows-core 0.60.1",
 ]
 
 [[package]]
