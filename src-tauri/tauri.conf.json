@@ -11,8 +11,8 @@
     "windows": [
       {
         "title": "NekoFrame",
-        "width": 310,
-        "height": 300,
+        "width": 320,
+        "height": 320,
         "resizable": false,
         "visible": false
       }

@@ -10,22 +10,28 @@ window.addEventListener('DOMContentLoaded', async () => {
             ws.close();
         }
 
-        ws = new WebSocket(wsUrl);
-        
-        ws.onmessage = (event) => {
-            const stats = JSON.parse(event.data);
-            updateStatsCard(stats, false, wsUrl);
-            ws.close();
-            ws = null;
-        };
+        try {
+            ws = new WebSocket(wsUrl);
+            
+            ws.onmessage = (event) => {
+                const stats = JSON.parse(event.data);
+                updateStatsCard(stats, false, wsUrl);
+                ws.close();
+                ws = null;
+            };
 
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateStatsCard(null, true, wsUrl);
+                ws.close();
+                ws = null;
+            };
+        } catch (error) {
+            console.error('Failed to connect:', error);
             updateStatsCard(null, true, wsUrl);
-            ws.close();
-            ws = null;
-        };
+        }
     });
+    
 });
 
 
@@ -40,6 +46,10 @@ function updateStatsCard(stats, error = false, wsUrl = '') {  // Add wsUrl param
                         <th scope="row">Status</th>
                         <td style="color: red;">Connection Error</td>
                     </tr>
+                    <tr>
+                        <th scope="row">WebSocket</th>
+                        <td style="color: red;">${wsUrl}</td>
+                    </tr>
                 </tbody>
             </table>`;
         return;
@@ -48,9 +58,9 @@ function updateStatsCard(stats, error = false, wsUrl = '') {  // Add wsUrl param
     content.innerHTML = `
     <table>
         <tbody>
-            <tr>
+           <tr>
                 <th scope="row">WebSocket</th>
-                <td>${wsUrl}</td>
+                <td>${!error ? `✅ ${wsUrl}` : `❌ ${wsUrl}`}</td>
             </tr>
             <tr>
                 <th scope="row">CPU</th>
