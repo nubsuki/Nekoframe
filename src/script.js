@@ -64,6 +64,14 @@ function updateStatsCard(stats, error = false, wsUrl = '') {  // Add wsUrl param
                 <th scope="row">GPU</th>
                 <td>${stats.gpu_name !== 'No NVIDIA GPU detected' ? '✅' : '❌'} ${stats.gpu_usage !== undefined ? '✅' : '❌'} ${stats.gpu_temp !== undefined ? '✅' : '❌'}</td>
             </tr>
+            <tr>
+                <th scope="row">Network</th>
+                <td> ${stats.network_down !== undefined ? '✅' : '❌'} ${stats.network_up !== undefined ? '✅' : '❌'}</td>
+            </tr>
+            <tr>
+                <th scope="row">Disk</th>
+                <td> ${stats.disks !== undefined ? '✅' : '❌'}</td>
+            </tr>
         </tbody>
     </table>`;
 }

@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use sysinfo::System;
+use sysinfo::{System, Networks, Disks}; 
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 use futures::StreamExt;
@@ -20,13 +20,19 @@ struct SystemStats {
     os_name: String,
     cpu_name: String,
     ram_amount: String,
+    network_down: f32,
+    network_up: f32,
+    disks: Vec<String>,
 }
-
 
 async fn handle_socket(ws: WebSocket) {
     let (mut ws_tx, _ws_rx) = ws.split();
     
     let mut sys = System::new_all();
+    let mut networks = Networks::new_with_refreshed_list();
+    let disks = Disks::new_with_refreshed_list();
+
+    // Refresh system information
     sys.refresh_all();
     
     // Get OS name
@@ -51,9 +57,22 @@ async fn handle_socket(ws: WebSocket) {
         Some(device) => device.name().unwrap_or_default(),
         None => String::from("GPU not found"),
     };
+
+    // Get all disks info
+    let all_disks: Vec<String> = disks.iter()
+        .map(|disk| {
+            let total_gb = disk.total_space() as f64 / (1024.0 * 1024.0 * 1024.0);
+            let used_gb = (disk.total_space() - disk.available_space()) as f64 / (1024.0 * 1024.0 * 1024.0);
+            let free_gb = disk.available_space() as f64 / (1024.0 * 1024.0 * 1024.0);
+            let name = disk.mount_point().to_string_lossy().to_string();
+            format!("{}:: {:.1} GB / {:.1} GB ({:.1} GB free)", 
+                name, used_gb, total_gb, free_gb)
+        })
+        .collect();
     
     loop {
         sys.refresh_all();
+        networks.refresh(false);
         
         // Collect CPU usage (average usage of all cores)
         let cpu_usage: f32 = (sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32).round();
@@ -74,6 +93,15 @@ async fn handle_socket(ws: WebSocket) {
         })
         .unwrap_or((0.0, 0.0));
 
+        // Get network usage
+        let (total_rx, total_tx) = networks.iter()
+            .fold((0, 0), |(rx, tx), (_name, data)| {
+                (rx + data.received(), tx + data.transmitted())
+            });
+
+        let network_down = (total_rx as f32 / (1024.0 * 1024.0) * 100.0).round() / 100.0;
+        let network_up = (total_tx as f32 / (1024.0 * 1024.0) * 100.0).round() / 100.0;
+
         let stats = SystemStats {
             cpu_usage,
             ram_usage,
@@ -83,6 +111,9 @@ async fn handle_socket(ws: WebSocket) {
             os_name: os_name.clone(),
             cpu_name: cpu_name.clone(),
             ram_amount: ram_amount.clone(),
+            network_down,
+            network_up,
+            disks: all_disks.clone(),
         };
 
         // Send stats via WebSocket
