@@ -35,7 +35,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 
-function updateStatsCard(stats, error = false, wsUrl = '') {  // Add wsUrl parameter
+function updateStatsCard(stats, error = false, wsUrl = '') {
     const content = document.querySelector('.content');
     
     if (error || !stats) {

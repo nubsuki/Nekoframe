@@ -24,6 +24,17 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "nubsuki",
+    "category": "Utility",
+    "shortDescription": "System monitoring application",
+    "longDescription": "NekoFrame is a system monitoring application that fetches system information and shares it via a local WebSocket. It is designed to be lightweight and easy to use.",
+    "copyright": "Copyright © 2025 nubsuki",
+    "license": "MIT",
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
