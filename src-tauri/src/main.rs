@@ -11,6 +11,12 @@ use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
 #[derive(Serialize)]
+struct SystemHealth {
+    status: String,
+    warnings: Vec<String>,
+}
+
+#[derive(Serialize)]
 struct SystemStats {
     cpu_usage: f32,
     ram_usage: f32,
@@ -26,6 +32,7 @@ struct SystemStats {
     process_count: usize,
     top_processes: Vec<ProcessInfo>,
     host_name: String,
+    health: SystemHealth,
 }
 
 #[derive(Serialize)]
@@ -101,7 +108,7 @@ async fn handle_socket(ws: WebSocket) {
             let name = process.name().to_string_lossy().to_lowercase();
             
             // Count as an app if it has a window or high memory usage
-            if process.memory() > 1024 * 1024 * 10 {
+            if process.memory() > 1024 * 1024 * 20 {
                 apps += 1;
             } else if process.cpu_usage() > 0.01 && 
                 !name.contains("system") &&
@@ -176,6 +183,37 @@ async fn handle_socket(ws: WebSocket) {
         let network_down = (total_rx as f32 / (1024.0 * 1024.0) * 100.0).round() / 100.0;
         let network_up = (total_tx as f32 / (1024.0 * 1024.0) * 100.0).round() / 100.0;
 
+
+        let mut warnings = Vec::new();
+        let mut status = "Healthy".to_string();
+
+        // CPU usage check
+        if cpu_usage > 95.0 {
+            warnings.push(format!("High CPU usage: {}%", cpu_usage));
+            status = "Warning".to_string();
+        }
+
+        // GPU checks
+        if gpu_usage > 95.0 {
+            warnings.push(format!("High GPU usage: {}%", gpu_usage));
+            status = "Warning".to_string();
+        }
+        if gpu_temp > 85.0 {
+            warnings.push(format!("High GPU temperature: {}°C", gpu_temp));
+            status = "Warning".to_string();
+        }
+
+        // RAM usage check
+        if ram_usage > 95.0 {
+            warnings.push(format!("High RAM usage: {}%", ram_usage));
+            status = "Warning".to_string();
+        }
+
+        let health = SystemHealth {
+            status,
+            warnings,
+        };
+
         let stats = SystemStats {
             cpu_usage,
             ram_usage,
@@ -191,6 +229,7 @@ async fn handle_socket(ws: WebSocket) {
             process_count,
             top_processes: processes,
             host_name: host_name.clone(),
+            health,
         };
 
         // Send stats via WebSocket
