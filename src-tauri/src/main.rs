@@ -23,6 +23,17 @@ struct SystemStats {
     network_down: f32,
     network_up: f32,
     disks: Vec<String>,
+    process_count: usize,
+    top_processes: Vec<ProcessInfo>,
+    host_name: String,
+}
+
+#[derive(Serialize)]
+struct ProcessInfo {
+    name: String,
+    pid: u32,
+    cpu_usage: f32,
+    memory_usage: u64,
 }
 
 async fn handle_socket(ws: WebSocket) {
@@ -41,6 +52,8 @@ async fn handle_socket(ws: WebSocket) {
         System::name().unwrap_or_else(|| String::from("Unknown OS")),
         System::os_version().unwrap_or_else(|| String::from("Unknown Version"))
     );
+
+    let host_name = System::host_name().unwrap_or_else(|| String::from("Unknown Host"));
 
     // Get CPU name
     let cpu_name = sys
@@ -80,6 +93,56 @@ async fn handle_socket(ws: WebSocket) {
     loop {
         sys.refresh_all();
         networks.refresh(false);
+
+        let mut background_processes = 0;
+        let mut apps = 0;
+
+        sys.processes().iter().for_each(|(_, process)| {
+            let name = process.name().to_string_lossy().to_lowercase();
+            
+            // Count as an app if it has a window or high memory usage
+            if process.memory() > 1024 * 1024 * 10 {
+                apps += 1;
+            } else if process.cpu_usage() > 0.01 && 
+                !name.contains("system") &&
+                !name.contains("svc") &&
+                !name.contains("service") &&
+                !name.contains("runtime") &&
+                !name.starts_with("ms") &&
+                !name.starts_with("win") &&
+                !name.contains("registry") &&
+                !name.contains("fontdrvhost") &&
+                !name.contains("csrss") &&
+                !name.contains("smss") &&
+                !name.contains("wininit") &&
+                !name.contains("lsass") {
+                background_processes += 1;
+            }
+        });
+
+        let process_count = background_processes + apps;
+
+        // Collect top processes for display (unchanged)
+        let mut processes: Vec<ProcessInfo> = sys
+            .processes()
+            .iter()
+            .filter(|(_, process)| {
+                // Filter out system processes and those with 0 CPU usage
+                process.cpu_usage() > 0.01 && 
+                !process.name().to_string_lossy().to_lowercase().contains("system")
+            })
+            .map(|(_, process)| ProcessInfo {
+                name: process.name().to_string_lossy().to_string(),
+                pid: process.pid().as_u32(),
+                cpu_usage: process.cpu_usage(),
+                memory_usage: process.memory(),
+            })
+            .collect();
+
+        // Sort by CPU usage
+        processes.sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap_or(std::cmp::Ordering::Equal));
+        // Take top 10
+        processes.truncate(10);
 
         // Collect CPU usage (average usage of all cores)
         let cpu_usage: f32 = (sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>()
@@ -125,6 +188,9 @@ async fn handle_socket(ws: WebSocket) {
             network_down,
             network_up,
             disks: all_disks.clone(),
+            process_count,
+            top_processes: processes,
+            host_name: host_name.clone(),
         };
 
         // Send stats via WebSocket
