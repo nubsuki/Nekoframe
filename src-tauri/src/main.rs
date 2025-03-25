@@ -129,22 +129,34 @@ async fn handle_socket(ws: WebSocket) {
 
         let process_count = background_processes + apps;
 
-        // Collect top processes for display (unchanged)
-        let mut processes: Vec<ProcessInfo> = sys
-            .processes()
+        // Collect top processes for display
+        let mut process_map: std::collections::HashMap<String, ProcessInfo> = std::collections::HashMap::new();
+        
+        sys.processes()
             .iter()
             .filter(|(_, process)| {
-                // Filter out system processes and those with 0 CPU usage
                 process.cpu_usage() > 0.01 && 
                 !process.name().to_string_lossy().to_lowercase().contains("system")
             })
-            .map(|(_, process)| ProcessInfo {
-                name: process.name().to_string_lossy().to_string(),
-                pid: process.pid().as_u32(),
-                cpu_usage: process.cpu_usage(),
-                memory_usage: process.memory(),
-            })
-            .collect();
+            .for_each(|(_, process)| {
+                let name = process.name().to_string_lossy().to_string();
+                let cpu_usage = process.cpu_usage() / sys.cpus().len() as f32;
+                
+                process_map
+                    .entry(name.clone())
+                    .and_modify(|e| {
+                        e.cpu_usage += cpu_usage;
+                        e.memory_usage += process.memory();
+                    })
+                    .or_insert(ProcessInfo {
+                        name,
+                        pid: process.pid().as_u32(),
+                        cpu_usage,
+                        memory_usage: process.memory(),
+                    });
+            });
+
+        let mut processes: Vec<ProcessInfo> = process_map.into_values().collect();
 
         // Sort by CPU usage
         processes.sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap_or(std::cmp::Ordering::Equal));
