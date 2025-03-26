@@ -35,8 +35,7 @@ This application is designed to create interactive web wallpapers for Wallpaper 
 3. Check the connection status and available metrics
 
 ## Integration
-
-Ypu can  check out my own project 
+You can check out my project: 
 [Wallux](https://github.com/nubsuki/Wallux_wallpaper-engine)
 
 
