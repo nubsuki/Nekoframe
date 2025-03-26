@@ -7,6 +7,7 @@ This application is designed to create interactive web wallpapers for Wallpaper 
 ## NekoFrame Application
 
 ![NekoFrame](Assets/NekoFrame.png)
+![NekoFrameInfo](Assets/NekoframeInfo.png)
 
 ## Features
 
@@ -38,6 +39,7 @@ This application is designed to create interactive web wallpapers for Wallpaper 
 You can check out my project: 
 [Wallux](https://github.com/nubsuki/Wallux_wallpaper-engine)
 
+![Wallux](Assets/Wallux.png)
 
 
 ### Limitations
