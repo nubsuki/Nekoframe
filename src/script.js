@@ -4,20 +4,27 @@ window.addEventListener('DOMContentLoaded', async () => {
     const button = document.getElementById('test');
     const wsUrl = await invoke('get_ws_url');
     let ws = null;
+    let isConnecting = false; 
 
     button.addEventListener('click', async () => {
-        if (ws) {
+
+        // Prevent multiple connections while connecting
+        if (isConnecting) return;
+
+        // Close existing connection if any
+        if (ws && ws.readyState === WebSocket.OPEN) {
             ws.close();
+            ws = null;
+            return;
         }
 
         try {
+            isConnecting = true;
             ws = new WebSocket(wsUrl);
             
             ws.onmessage = (event) => {
                 const stats = JSON.parse(event.data);
                 updateStatsCard(stats, false, wsUrl);
-                ws.close();
-                ws = null;
             };
 
             ws.onerror = (error) => {
@@ -25,10 +32,23 @@ window.addEventListener('DOMContentLoaded', async () => {
                 updateStatsCard(null, true, wsUrl);
                 ws.close();
                 ws = null;
+                isConnecting = false;
             };
+
+            ws.onclose = () => {
+                updateStatsCard(null, true, wsUrl);
+                ws = null;
+                isConnecting = false;
+            };
+
+            ws.onopen = () => {
+                isConnecting = false;
+            };
+
         } catch (error) {
             console.error('Failed to connect:', error);
             updateStatsCard(null, true, wsUrl);
+            isConnecting = false;
         }
     });
     
@@ -60,7 +80,7 @@ function updateStatsCard(stats, error = false, wsUrl = '') {
         <tbody>
            <tr>
                 <th scope="row">WebSocket</th>
-                <td>${!error ? `✅ ${wsUrl}` : `❌ ${wsUrl}`}</td>
+                <td>${!error ? `✅ ${stats.active_connections} ${wsUrl}` : `❌ ${wsUrl}`}</td>
             </tr>
             <tr>
                 <th scope="row">CPU</th>

@@ -9,12 +9,15 @@ use serde::Serialize;
 use sysinfo::{Disks, Networks, System};
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Serialize)]
 struct SystemHealth {
     status: String,
     warnings: Vec<String>,
 }
+
+static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Serialize)]
 struct SystemStats {
@@ -33,6 +36,7 @@ struct SystemStats {
     top_processes: Vec<ProcessInfo>,
     host_name: String,
     health: SystemHealth,
+    active_connections: usize,
 }
 
 #[derive(Serialize)]
@@ -44,6 +48,10 @@ struct ProcessInfo {
 }
 
 async fn handle_socket(ws: WebSocket) {
+
+    // Increment connection counter
+    let _prev_count = ACTIVE_CONNECTIONS.fetch_add(1, Ordering::SeqCst);
+
     let (mut ws_tx, _ws_rx) = ws.split();
 
     let mut sys = System::new_all();
@@ -135,7 +143,9 @@ async fn handle_socket(ws: WebSocket) {
         sys.processes()
             .iter()
             .filter(|(_, process)| {
+                // Only include processes that are currently active
                 process.cpu_usage() > 0.01 && 
+                process.status() == sysinfo::ProcessStatus::Run &&
                 !process.name().to_string_lossy().to_lowercase().contains("system")
             })
             .for_each(|(_, process)| {
@@ -159,6 +169,7 @@ async fn handle_socket(ws: WebSocket) {
         let mut processes: Vec<ProcessInfo> = process_map.into_values().collect();
 
         // Sort by CPU usage
+        processes.retain(|p| p.cpu_usage > 0.01);
         processes.sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap_or(std::cmp::Ordering::Equal));
         // Take top 10
         processes.truncate(10);
@@ -242,6 +253,7 @@ async fn handle_socket(ws: WebSocket) {
             top_processes: processes,
             host_name: host_name.clone(),
             health,
+            active_connections: ACTIVE_CONNECTIONS.load(Ordering::SeqCst),
         };
 
         // Send stats via WebSocket
@@ -252,6 +264,9 @@ async fn handle_socket(ws: WebSocket) {
 
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
+
+    // Decrement counter when connection closes
+    ACTIVE_CONNECTIONS.fetch_sub(1, Ordering::SeqCst);
 }
 
 #[tokio::main]
