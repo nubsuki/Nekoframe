@@ -39,7 +39,8 @@ This application is designed to create interactive web wallpapers for Wallpaper 
 You can check out my project: 
 [Wallux](https://github.com/nubsuki/Wallux_wallpaper-engine)
 
-![Wallux](Assets/Wallux.png)
+## Demo and Quick-guide
+[![YouTube](https://img.youtube.com/vi/VRLvY5bjuP8/maxresdefault.jpg)](https://youtu.be/VRLvY5bjuP8)
 
 
 ### Limitations
