@@ -1,0 +1,40 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Montserrat, sans-serif;
+    justify-content: center;
+    align-self: center;
+    display: flex;
+    background: transparent;
+    backdrop-filter: blur(10px);
+    margin: auto;
+}
+
+.card {
+    position: relative;
+    width: 490px;
+    height: 44px;
+    border-radius: 30px;
+    background: turquoise;
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+.close-button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    cursor: pointer;
+    color: #fff;
+    font-size: 20px;
+    padding: 5px 10px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.close-button:hover {
+    background-color: rgba(255, 0, 0, 0.7);
+}

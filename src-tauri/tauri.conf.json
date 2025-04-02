@@ -14,7 +14,10 @@
         "width": 320,
         "height": 320,
         "resizable": false,
-        "visible": false
+        "visible": false,
+        "label": "main",
+        "url": "index.html",
+        "maximizable": false
       }
     ],
     "security": {

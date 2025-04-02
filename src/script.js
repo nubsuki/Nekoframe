@@ -1,10 +1,41 @@
 const { invoke } = window.__TAURI__.core;
+const { Window } = window.__TAURI__.window;
+const { WebviewWindow } = window.__TAURI__.webviewWindow ;
 
+// create a new window
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('stats').addEventListener('click', () => {
+
+        const webview = new WebviewWindow('stats', {
+            url: 'stats.html',
+            title: 'Stats',
+            width: 500,
+            height: 45,
+            resizable: false,
+            decorations: false,
+            focus: true,
+            alwaysOnTop: true,
+            transparent: true,
+            y: 10,
+            x: Math.floor((window.screen.width - 400) / 2),
+            skipTaskbar: false,
+            shadow: false
+        });
+
+        webview.once('tauri://created', () => {
+            console.log('New window created successfully!');
+        });
+
+        webview.once('tauri://error', (e) => {
+            console.error('Error creating window:', e);
+        });
+    });
+});
 window.addEventListener('DOMContentLoaded', async () => {
     const button = document.getElementById('test');
     const wsUrl = await invoke('get_ws_url');
     let ws = null;
-    let isConnecting = false; 
+    let isConnecting = false;
 
     button.addEventListener('click', async () => {
 
@@ -21,7 +52,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         try {
             isConnecting = true;
             ws = new WebSocket(wsUrl);
-            
+
             ws.onmessage = (event) => {
                 const stats = JSON.parse(event.data);
                 updateStatsCard(stats, false, wsUrl);
@@ -51,13 +82,13 @@ window.addEventListener('DOMContentLoaded', async () => {
             isConnecting = false;
         }
     });
-    
+
 });
 
 
 function updateStatsCard(stats, error = false, wsUrl = '') {
     const content = document.querySelector('.content');
-    
+
     if (error || !stats) {
         content.innerHTML = `
             <table>

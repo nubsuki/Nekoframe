@@ -28,14 +28,23 @@ body {
   font-family: Montserrat, sans-serif;
   font-size: 14px;
   font-weight: 900;
-  width: 100%;
+  width: 90%;
   height: 32px;
   background: #ffffff;
   padding: 5px 12px;
   color: #000000;
+  border-radius: 5px;
   border-bottom: 3px solid #000000;
+  margin: 2px auto;
+  justify-content: end;
+  display: flex;  
+  gap: 8px;  
 }
-
+.head h2{
+  font-size: 20px;
+  margin-right: 41px;
+  margin-top: 5px;
+}
 .content {
   padding: 8px 12px;
   font-size: 14px;
@@ -46,7 +55,16 @@ body {
 .content div {
   text-align: left;
 }
-
+.head button {
+  position: relative;
+}
+.head .button {
+  margin-left: 0; 
+  padding: 5px 6px;     
+}
+.head button svg {
+  width: 17px;
+}
 .button {
   padding: 5px 10px;
   margin-left: 180px;
