@@ -7,7 +7,6 @@ This application is designed to create interactive web wallpapers for Wallpaper 
 ## NekoFrame Application
 
 ![NekoFrame](Assets/NekoFrame.png)
-![NekoFrameInfo](Assets/NekoframeInfo.png)
 
 ## Features
 
