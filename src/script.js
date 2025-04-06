@@ -182,7 +182,7 @@ async function initWebSocket() {
     }
 }
 
-// Function to update the stats display
+// Update the stats display
 function updateStats(stats) {
     const statsText = document.getElementById('statsText');
     if (statsText) {
@@ -193,6 +193,7 @@ function updateStats(stats) {
 
 document.addEventListener('DOMContentLoaded', () => {
     const colorPicker = document.getElementById('textColorPicker');
+    const bgColorPicker = document.getElementById('bgColorPicker');
     if (colorPicker) {
         colorPicker.addEventListener('change', (e) => {
             const selectedColor = e.target.value;
@@ -205,7 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Check if this is the stats page
     const statsText = document.getElementById('statsText');
     if (statsText) {
         // Apply the stored color if available
@@ -221,9 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    // Add background color picker functionality
-    const bgColorPicker = document.getElementById('bgColorPicker');
     if (bgColorPicker) {
         bgColorPicker.addEventListener('change', (e) => {
             const selectedColor = e.target.value;
@@ -235,7 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Check if this is the stats page
     const statsCard = document.querySelector('.Statcard');
     if (statsCard) {
         // Apply the stored background if available
