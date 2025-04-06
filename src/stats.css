@@ -17,7 +17,7 @@ body {
     width: 490px;
     height: 44px;
     border-radius: 30px;
-    background: transparent;
+    background: rgba(128, 128, 128, 0.5);
     backdrop-filter: blur(10px);
     overflow: hidden;
     transition: all 0.3s ease;
@@ -27,7 +27,7 @@ body {
 .stats-row {
     display: flex;
     gap: 10px;
-    color: #000;
+    color: #FFFFFF;
     font-weight: 600;
     font-family:  Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
     font-size: 16px;
