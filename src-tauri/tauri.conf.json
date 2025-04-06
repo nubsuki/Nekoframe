@@ -12,7 +12,7 @@
       {
         "title": "NekoFrame",
         "width": 320,
-        "height": 320,
+        "height": 520,
         "resizable": false,
         "visible": false,
         "label": "main",

@@ -1,8 +1,7 @@
 const { invoke } = window.__TAURI__.core;
 const { Window } = window.__TAURI__.window;
-const { WebviewWindow } = window.__TAURI__.webviewWindow ;
+const { WebviewWindow } = window.__TAURI__.webviewWindow;
 
-// create a new window
 window.addEventListener('DOMContentLoaded', async () => {
     const button = document.getElementById('test');
     const wsUrl = await invoke('get_ws_url');
@@ -10,78 +9,84 @@ window.addEventListener('DOMContentLoaded', async () => {
     let isConnecting = false;
     initWebSocket();
 
-    button.addEventListener('click', async () => {
+    if (button) {
+        button.addEventListener('click', async () => {
 
-        // Prevent multiple connections while connecting
-        if (isConnecting) return;
+            // Prevent multiple connections while connecting
+            if (isConnecting) return;
 
-        // Close existing connection if any
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.close();
-            ws = null;
-            return;
-        }
-
-        try {
-            isConnecting = true;
-            ws = new WebSocket(wsUrl);
-
-            ws.onmessage = (event) => {
-                const stats = JSON.parse(event.data);
-                updateStatsCard(stats, false, wsUrl);
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                updateStatsCard(null, true, wsUrl);
+            // Close existing connection if any
+            if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.close();
                 ws = null;
-                isConnecting = false;
-            };
+                return;
+            }
 
-            ws.onclose = () => {
+            try {
+                isConnecting = true;
+                ws = new WebSocket(wsUrl);
+
+                ws.onmessage = (event) => {
+                    const stats = JSON.parse(event.data);
+                    updateStatsCard(stats, false, wsUrl);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateStatsCard(null, true, wsUrl);
+                    ws.close();
+                    ws = null;
+                    isConnecting = false;
+                };
+
+                ws.onclose = () => {
+                    updateStatsCard(null, true, wsUrl);
+                    ws = null;
+                    isConnecting = false;
+                };
+
+                ws.onopen = () => {
+                    isConnecting = false;
+                };
+
+            } catch (error) {
+                console.error('Failed to connect:', error);
                 updateStatsCard(null, true, wsUrl);
-                ws = null;
                 isConnecting = false;
-            };
-
-            ws.onopen = () => {
-                isConnecting = false;
-            };
-
-        } catch (error) {
-            console.error('Failed to connect:', error);
-            updateStatsCard(null, true, wsUrl);
-            isConnecting = false;
-        }
-    });
-
-    document.getElementById('stats').addEventListener('click', () => {
-
-        const webview = new WebviewWindow('stats', {
-            url: 'stats.html',
-            title: 'Stats',
-            width: 500,
-            height: 45,
-            resizable: false,
-            decorations: false,
-            focus: true,
-            alwaysOnTop: true,
-            transparent: true,
-            y: 10,
-            x: Math.floor((window.screen.width - 400) / 2),
-            skipTaskbar: false,
-            shadow: false
+            }
         });
+    }
 
-        webview.once('tauri://created', () => {
-            console.log('New window created successfully!');
-        });
+    const statsButton = document.getElementById('stats');
+    if (statsButton) {
+        statsButton.addEventListener('click', () => {
 
-        webview.once('tauri://error', (e) => {
-            console.error('Error creating window:', e);
+            const webview = new WebviewWindow('stats', {
+                url: 'stats.html',
+                title: 'Stats',
+                width: 500,
+                height: 45,
+                resizable: false,
+                decorations: false,
+                focus: true,
+                alwaysOnTop: true,
+                transparent: true,
+                y: 10,
+                x: Math.floor((window.screen.width - 400) / 2),
+                skipTaskbar: false,
+                shadow: false
+            });
+
+            webview.once('tauri://created', () => {
+                console.log('New window created successfully!');
+
+            });
+
+            webview.once('tauri://error', (e) => {
+                console.error('Error creating window:', e);
+            });
         });
-    });
+    }
 
 });
 
@@ -140,7 +145,13 @@ function updateStatsCard(stats, error = false, wsUrl = '') {
 async function initWebSocket() {
     try {
         const wsUrl = await invoke('get_ws_url');
+        // Close existing connection if there is one
+        if (window.statsWs && window.statsWs.readyState === WebSocket.OPEN) {
+            window.statsWs.close();
+        }
+        
         const ws = new WebSocket(wsUrl);
+        window.statsWs = ws; // Store WS reference globally
 
         ws.onmessage = (event) => {
             const stats = JSON.parse(event.data);
@@ -151,16 +162,21 @@ async function initWebSocket() {
 
         ws.onerror = (error) => {
             console.error('WebSocket error:', error);
+            delete window.statsWs;
         };
 
         ws.onclose = () => {
             console.log('WebSocket connection closed');
+            delete window.statsWs;
             // Attempt to reconnect after 5 seconds
-            setTimeout(initWebSocket, 5000);
+            if (!window.statsWs) {
+                setTimeout(initWebSocket, 5000);
+            }
         };
 
     } catch (error) {
         console.error('Failed to connect:', error);
+        delete window.statsWs;
         // Attempt to reconnect after 5 seconds
         setTimeout(initWebSocket, 5000);
     }
@@ -168,16 +184,10 @@ async function initWebSocket() {
 
 // Function to update the stats display
 function updateStats(stats) {
-    // Check if elements exist before updating
-    const gpuUsage = document.getElementById('gpu_usage');
-    const gpuTemp = document.getElementById('gpu_temp');
-    const cpuUsage = document.getElementById('cpu_usage');
-    const ramUsage = document.getElementById('ram_usage');
-
-    if (gpuUsage) gpuUsage.textContent = `${Math.round(stats.gpu_usage)}%`;
-    if (gpuTemp) gpuTemp.textContent = `[${Math.round(stats.gpu_temp)} °C]`;
-    if (cpuUsage) cpuUsage.textContent = `${Math.round(stats.cpu_usage)}%`;
-    if (ramUsage) ramUsage.textContent = `${Math.round(stats.ram_usage)}%`;
+    const statsText = document.getElementById('statsText');
+    if (statsText) {
+        statsText.textContent = `GPU: ${Math.round(stats.gpu_usage)}% [${Math.round(stats.gpu_temp)}°C] | CPU: ${Math.round(stats.cpu_usage)}% | RAM: ${Math.round(stats.ram_usage)}%`;
+    }
 }
 
 
@@ -189,6 +199,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Store the selected color in localStorage
             localStorage.setItem('statsTextColor', selectedColor);
         });
+        const savedTextColor = localStorage.getItem('statsTextColor');
+        if (savedTextColor) {
+            textColorPicker.value = savedTextColor;
+        }
     }
 
     // Check if this is the stats page
@@ -215,6 +229,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedColor = e.target.value;
             localStorage.setItem('statsBackground', selectedColor);
         });
+        const savedBgColor = localStorage.getItem('statsBackground');
+        if (savedBgColor) {
+            bgColorPicker.value = savedBgColor;
+        }
     }
 
     // Check if this is the stats page
