@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NekoFrame</title>
     <link rel="stylesheet" href="stats.css" />
-    <script type="module" src="stats.js" defer></script>
+    <script type="module" src="script.js" defer></script>
   </head>
 
   <body>
     <main>  
-      <div class="card">
+      <div class="Statcard">
+        <div class="stats-row" id="statsText">
+          <span>GPU : <span id="gpu_usage">45%</span> <span id="gpu_temp">/ 60C</span></span> |
+          <span>CPU : <span id="cpu_usage">50%</span></span> |
+          <span>RAM : <span id="ram_usage">60%</span></span>
         </div>
-      </div>      
+      </div>
     </main>
   </body>
 </html>

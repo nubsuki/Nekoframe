@@ -42,7 +42,7 @@ body {
 }
 .head h2{
   font-size: 20px;
-  margin-right: 41px;
+  margin-right: 71px;
   margin-top: 5px;
 }
 .content {
@@ -109,4 +109,52 @@ td:last-of-type {
 
 tbody > tr:nth-of-type(even) {
   background-color: rgb(237 238 242);
+}
+.options {
+  height: auto;
+  padding: 12px 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin: 10px;
+  border: 2px solid #000000;
+}
+
+.options h3 {
+  color: #000;
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.options p {
+  display: flex;
+  color: #000;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 8px 0 4px 0;
+}
+
+.color-dropdown {
+  padding: 6px 8px;
+  border: 2px solid #000000;
+  border-radius: 6px;
+  background: #ffffff;
+  font-family: Montserrat, sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  width: 120px;
+  box-shadow: 2px 2px 0 #000000;
+  transition: all 0.2s ease;
+}
+
+.color-dropdown:hover {
+  border-color: #1ac2ff;
+  transform: translateY(-1px);
+}
+
+.color-dropdown:focus {
+  outline: none;
+  border-color: #be94ee;
+  box-shadow: 1px 1px 0 #000000;
+  transform: translateY(1px);
 }

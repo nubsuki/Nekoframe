@@ -113,24 +113,10 @@ async fn handle_socket(ws: WebSocket) {
         let mut apps = 0;
 
         sys.processes().iter().for_each(|(_, process)| {
-            let name = process.name().to_string_lossy().to_lowercase();
-            
-            // Count as an app if it has a window or high memory usage
+            // Count as an app if it has higher memory usage
             if process.memory() > 1024 * 1024 * 20 {
                 apps += 1;
-            } else if process.cpu_usage() > 0.01 && 
-                !name.contains("system") &&
-                !name.contains("svc") &&
-                !name.contains("service") &&
-                !name.contains("runtime") &&
-                !name.starts_with("ms") &&
-                !name.starts_with("win") &&
-                !name.contains("registry") &&
-                !name.contains("fontdrvhost") &&
-                !name.contains("csrss") &&
-                !name.contains("smss") &&
-                !name.contains("wininit") &&
-                !name.contains("lsass") {
+            } else {
                 background_processes += 1;
             }
         });
