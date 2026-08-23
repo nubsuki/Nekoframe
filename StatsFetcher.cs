@@ -5,15 +5,12 @@ using System.Net.NetworkInformation;
 
 namespace Nekoframe;
 
-
-// Wraps LibreHardwareMonitorLib to collect system hardware stats.
-
 public class StatsFetcher : IDisposable
 {
     private readonly Computer _computer;
     private bool _disposed;
 
-    // Network fallback
+    // Used when LHM doesn't expose Throughput sensors for network
     private long _lastNetBytesSent;
     private long _lastNetBytesReceived;
     private DateTime _lastNetSample = DateTime.MinValue;
@@ -34,9 +31,7 @@ public class StatsFetcher : IDisposable
         };
         _computer.Open();
         UpdateAll();
-        DumpSensors();
 
-        // Initialize network fallback baseline
         SampleNetworkBytes(out _lastNetBytesSent, out _lastNetBytesReceived);
         _lastNetSample = DateTime.UtcNow;
     }
@@ -66,32 +61,80 @@ public class StatsFetcher : IDisposable
         }
     }
 
-    // Writes all detected hardware sensors to the log file once at startup.
-    private void DumpSensors()
+    // Generates a sensor snapshot for the "View Report" tray action.
+    public string GenerateReport()
     {
-        Logger.Sensors("━━━ Detected hardware sensors ━━━━━━━━━━━━━━━━━━━━━━━");
+        UpdateAll();
+
+        var sb = new System.Text.StringBuilder();
+        var now = DateTime.Now;
+        var warnings = new List<string>();
+
+        sb.AppendLine($"Nekoframe Sensor Report — {now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine($"WebSocket: ws://localhost:8181");
+        sb.AppendLine(new string('━', 60));
+        sb.AppendLine();
+
         foreach (var hw in _computer.Hardware)
         {
-            Logger.Sensors($"[{hw.HardwareType}] {hw.Name}");
+            sb.AppendLine($"[{hw.HardwareType}]  {hw.Name}");
             foreach (var sensor in hw.Sensors)
             {
-                var val = sensor.Value.HasValue ? $"{sensor.Value:F1}" : "null";
-                Logger.Sensors($"  {sensor.SensorType,-14} | {sensor.Name,-35} = {val}");
+                string val = sensor.Value.HasValue ? $"{sensor.Value:F1}" : "⚠ null";
+                if (!sensor.Value.HasValue)
+                    warnings.Add($"{hw.Name} → {sensor.SensorType} '{sensor.Name}'");
+                sb.AppendLine($"  {sensor.SensorType,-14}  {sensor.Name,-38} {val}");
             }
-            foreach (var sub in hw.SubHardware)
-            {
-                Logger.Sensors($"  [{sub.HardwareType}] {sub.Name}");
-                foreach (var sensor in sub.Sensors)
-                {
-                    var val = sensor.Value.HasValue ? $"{sensor.Value:F1}" : "null";
-                    Logger.Sensors($"    {sensor.SensorType,-12} | {sensor.Name,-33} = {val}");
-                }
-            }
+            sb.AppendLine();
         }
-        Logger.Sensors("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    }
 
-    // ──────────────────────────── CPU ────────────────────────────
+        sb.AppendLine(new string('━', 60));
+        sb.AppendLine("ACTIVE BROADCAST VALUES");
+        sb.AppendLine(new string('━', 60));
+        try
+        {
+            var s = GetStats();
+            sb.AppendLine($"  CPU   {s.Cpu.Name}");
+            sb.AppendLine($"        Usage   {s.Cpu.UsagePercent:F1}%");
+            sb.AppendLine($"        Temp    {(s.Cpu.TempCelsius.HasValue ? $"{s.Cpu.TempCelsius:F1} °C" : "⚠ not available")}");
+            sb.AppendLine($"        Freq    {s.Cpu.FrequencyMhz:F0} MHz");
+            sb.AppendLine($"        Power   {(s.Cpu.PowerWatts.HasValue ? $"{s.Cpu.PowerWatts:F1} W" : "—")}");
+            sb.AppendLine($"        Cores   {s.Cpu.Cores}C / {s.Cpu.Threads}T");
+            sb.AppendLine();
+            sb.AppendLine($"  GPU   {s.Gpu.Name}");
+            sb.AppendLine($"        Usage   {s.Gpu.UsagePercent:F1}%");
+            sb.AppendLine($"        Temp    {(s.Gpu.TempCelsius.HasValue ? $"{s.Gpu.TempCelsius:F1} °C" : "⚠ not available")}");
+            sb.AppendLine($"        VRAM    {s.Gpu.VramUsedMb:F0} MB / {s.Gpu.VramTotalMb:F0} MB");
+            sb.AppendLine($"        Power   {(s.Gpu.PowerWatts.HasValue ? $"{s.Gpu.PowerWatts:F1} W" : "—")}");
+            sb.AppendLine();
+            sb.AppendLine($"  RAM   {s.Ram.UsedGb:F2} GB / {s.Ram.TotalGb:F2} GB ({s.Ram.UsagePercent:F1}%)");
+            sb.AppendLine();
+            foreach (var d in s.Disks)
+                sb.AppendLine($"  DISK  {d.Name} \"{d.Label}\"  {d.UsedGb:F1} / {d.TotalGb:F1} GB ({d.UsagePercent:F1}%)");
+            sb.AppendLine();
+            sb.AppendLine($"  NET   ↑ {s.Network.UploadKbps:F1} KB/s   ↓ {s.Network.DownloadKbps:F1} KB/s");
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine($"  ⚠ Could not collect live stats: {ex.Message}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine(new string('━', 60));
+        if (warnings.Count > 0)
+        {
+            sb.AppendLine($"WARNINGS  ({warnings.Count} sensors returned null)");
+            sb.AppendLine(new string('━', 60));
+            foreach (var w in warnings) sb.AppendLine($"  ⚠  {w}");
+        }
+        else
+        {
+            sb.AppendLine("✓ All sensors returned values — no warnings.");
+        }
+        sb.AppendLine();
+        sb.AppendLine($"Snapshot at {now:HH:mm:ss}. This file is not updated automatically.");
+        return sb.ToString();
+    }
 
     private CpuStats GetCpuStats()
     {
@@ -102,11 +145,13 @@ public class StatsFetcher : IDisposable
 
         result.Name = cpu.Name;
 
-        // Temperature priority buckets
-        float? tctlTdie   = null;  
-        float? ccdDie     = null;  
-        float? pkgTemp    = null;  
-        float? maxCoreTmp = null;  
+        // AMD Zen exposes multiple temperature sensors. Priority: Tctl/Tdie (matches cooler
+        // software) > CCD chiplet die > Package > per-core hottest. We take max(Tctl, CCD)
+        // because on some dies the chiplet can read hotter than the reported Tdie.
+        float? tctlTdie   = null;
+        float? ccdDie     = null;
+        float? pkgTemp    = null;
+        float? maxCoreTmp = null;
 
         foreach (var sensor in cpu.Sensors)
         {
@@ -126,28 +171,15 @@ public class StatsFetcher : IDisposable
 
                 case SensorType.Temperature:
                     var n = sensor.Name;
-                    // Priority 1: Tctl/Tdie
                     if (n.Contains("Tctl", StringComparison.OrdinalIgnoreCase)
                         || (n.Contains("Tdie", StringComparison.OrdinalIgnoreCase) && !n.Contains("CCD", StringComparison.OrdinalIgnoreCase)))
-                    {
                         tctlTdie = tctlTdie.HasValue ? MathF.Max(tctlTdie.Value, val.Value) : val;
-                    }
-                    // Priority 2: CCD die temps
                     else if (n.Contains("CCD", StringComparison.OrdinalIgnoreCase))
-                    {
                         ccdDie = ccdDie.HasValue ? MathF.Max(ccdDie.Value, val.Value) : val;
-                    }
-                    // Priority 3: Package (Intel or generic)
-                    else if (n.Contains("Package", StringComparison.OrdinalIgnoreCase)
-                             || n.Equals("CPU", StringComparison.OrdinalIgnoreCase))
-                    {
+                    else if (n.Contains("Package", StringComparison.OrdinalIgnoreCase) || n.Equals("CPU", StringComparison.OrdinalIgnoreCase))
                         pkgTemp = pkgTemp.HasValue ? MathF.Max(pkgTemp.Value, val.Value) : val;
-                    }
-                    // Priority 4: Per-core temps — track the hottest
                     else if (n.StartsWith("Core", StringComparison.OrdinalIgnoreCase))
-                    {
                         maxCoreTmp = maxCoreTmp.HasValue ? MathF.Max(maxCoreTmp.Value, val.Value) : val;
-                    }
                     break;
 
                 case SensorType.Power when sensor.Name.Contains("Package", StringComparison.OrdinalIgnoreCase):
@@ -156,17 +188,12 @@ public class StatsFetcher : IDisposable
             }
         }
 
-        // Pick: Tctl/Tdie → CCD max → Package → hottest core → WMI fallback
-        float? lhmTemp = null;
-        if (tctlTdie.HasValue && ccdDie.HasValue)
-            lhmTemp = MathF.Max(tctlTdie.Value, ccdDie.Value);
-        else
-            lhmTemp = tctlTdie ?? ccdDie ?? pkgTemp ?? maxCoreTmp;
+        float? lhmTemp = (tctlTdie.HasValue && ccdDie.HasValue)
+            ? MathF.Max(tctlTdie.Value, ccdDie.Value)
+            : tctlTdie ?? ccdDie ?? pkgTemp ?? maxCoreTmp;
 
         result.TempCelsius = lhmTemp ?? GetCpuTempFromWmi();
-
-        // Core/thread count
-        result.Cores = GetCpuCoresFromWmi();
+        result.Cores   = GetCpuCoresFromWmi();
         result.Threads = result.Cores * 2;
 
         return result;
@@ -185,6 +212,8 @@ public class StatsFetcher : IDisposable
         return Environment.ProcessorCount / 2;
     }
 
+    // WMI fallback for CPUs where LHM can't read temperature.
+    // Raw value is in tenths of Kelvin → convert to Celsius.
     private static float? GetCpuTempFromWmi()
     {
         try
@@ -200,8 +229,6 @@ public class StatsFetcher : IDisposable
         catch { }
         return null;
     }
-
-    // ──────────────────────────── GPU ────────────────────────────
 
     private GpuStats GetGpuStats()
     {
@@ -231,7 +258,7 @@ public class StatsFetcher : IDisposable
                     result.TempCelsius = val;
                     break;
 
-                // Use LHM's own GPU Memory Used sensor
+                // SmallData is MB; avoids confusion with D3D dedicated memory which can differ
                 case SensorType.SmallData when sensor.Name.Equals("GPU Memory Used", StringComparison.OrdinalIgnoreCase):
                     result.VramUsedMb = val.Value;
                     break;
@@ -268,8 +295,6 @@ public class StatsFetcher : IDisposable
         return 0;
     }
 
-    // ──────────────────────────── RAM ────────────────────────────
-
     private RamStats GetRamStats()
     {
         var ram = _computer.Hardware.FirstOrDefault(h => h.HardwareType == HardwareType.Memory);
@@ -291,9 +316,9 @@ public class StatsFetcher : IDisposable
             var total = usedGb.Value + availGb.Value;
             return new RamStats
             {
-                UsedGb        = MathF.Round(usedGb.Value, 2),
-                TotalGb       = MathF.Round(total, 2),
-                UsagePercent  = total > 0 ? MathF.Round(usedGb.Value / total * 100f, 1) : 0,
+                UsedGb       = MathF.Round(usedGb.Value, 2),
+                TotalGb      = MathF.Round(total, 2),
+                UsagePercent = total > 0 ? MathF.Round(usedGb.Value / total * 100f, 1) : 0,
             };
         }
 
@@ -311,12 +336,10 @@ public class StatsFetcher : IDisposable
                 var totalKb = Convert.ToInt64(obj["TotalVisibleMemorySize"]);
                 var freeKb  = Convert.ToInt64(obj["FreePhysicalMemory"]);
                 var usedKb  = totalKb - freeKb;
-                var totalGb = totalKb / (1024f * 1024f);
-                var usedGb  = usedKb  / (1024f * 1024f);
                 return new RamStats
                 {
-                    TotalGb      = MathF.Round(totalGb, 2),
-                    UsedGb       = MathF.Round(usedGb, 2),
+                    TotalGb      = MathF.Round(totalKb / (1024f * 1024f), 2),
+                    UsedGb       = MathF.Round(usedKb  / (1024f * 1024f), 2),
                     UsagePercent = totalKb > 0 ? MathF.Round((float)usedKb / totalKb * 100f, 1) : 0,
                 };
             }
@@ -324,8 +347,6 @@ public class StatsFetcher : IDisposable
         catch { }
         return new RamStats();
     }
-
-    // ──────────────────────────── DISK ────────────────────────────
 
     private static List<DiskStats> GetDiskStats()
     {
@@ -349,11 +370,9 @@ public class StatsFetcher : IDisposable
         return result;
     }
 
-    // ──────────────────────────── NETWORK ────────────────────────────
-
     private NetworkStats GetNetworkStats()
     {
-        // Try LHM's own throughput sensors first (bytes/sec → KB/s)
+        // LHM exposes Throughput sensors in bytes/sec — sum across all NICs and convert to KB/s
         float? lhmUp = null, lhmDown = null;
 
         foreach (var hw in _computer.Hardware)
@@ -372,26 +391,24 @@ public class StatsFetcher : IDisposable
         }
 
         if (lhmUp.HasValue && lhmDown.HasValue)
-        {
             return new NetworkStats
             {
                 UploadKbps   = MathF.Max(0, MathF.Round(lhmUp.Value, 2)),
                 DownloadKbps = MathF.Max(0, MathF.Round(lhmDown.Value, 2)),
             };
-        }
 
-        // Fallback: delta from total bytes across all NICs
+        // LHM throughput not available — calculate manually from byte delta
         return GetNetworkFromDelta();
     }
 
     private NetworkStats GetNetworkFromDelta()
     {
         SampleNetworkBytes(out long sent, out long received);
-        var now = DateTime.UtcNow;
+        var now     = DateTime.UtcNow;
         var elapsed = Math.Max((now - _lastNetSample).TotalSeconds, 1);
 
-        var up   = (sent     - _lastNetBytesSent)     / elapsed / 1024f;
-        var down = (received - _lastNetBytesReceived)  / elapsed / 1024f;
+        var up   = (sent     - _lastNetBytesSent)    / elapsed / 1024f;
+        var down = (received - _lastNetBytesReceived) / elapsed / 1024f;
 
         _lastNetBytesSent     = sent;
         _lastNetBytesReceived = received;

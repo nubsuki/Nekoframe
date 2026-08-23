@@ -1,21 +1,15 @@
 using Nekoframe;
 using System.Windows.Forms;
 
-// Global exception handlers
+// WinExe has no console — catch crashes and show a MessageBox instead of dying silently
 Application.ThreadException += (_, e) =>
-{
-    Logger.Error("Unhandled UI thread exception", e.Exception);
-    MessageBox.Show(
-        $"Nekoframe encountered an error:\n\n{e.Exception.Message}\n\nCheck the log for details:\n{Logger.LogPath}",
+    MessageBox.Show($"Nekoframe error:\n\n{e.Exception.Message}",
         "Nekoframe Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-};
 
 AppDomain.CurrentDomain.UnhandledException += (_, e) =>
 {
-    var ex = e.ExceptionObject as Exception;
-    Logger.Error("Unhandled domain exception", ex);
-    MessageBox.Show(
-        $"Nekoframe crashed:\n\n{ex?.Message ?? e.ExceptionObject?.ToString()}\n\nCheck the log:\n{Logger.LogPath}",
+    var msg = e.ExceptionObject is Exception ex ? ex.Message : e.ExceptionObject?.ToString();
+    MessageBox.Show($"Nekoframe crashed:\n\n{msg}",
         "Nekoframe Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 };
 
