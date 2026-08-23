@@ -1,0 +1,40 @@
+## Build output
+bin/
+obj/
+
+## Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## dotnet publish / self-contained output
+publish/
+out/
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+## OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Logs / temp files
+*.log
+*.tmp
+
+## Compiled binaries (don't commit the exe itself — build it fresh)
+*.exe
+*.dll
+*.pdb
+
+## Environment / secrets (if you ever add config)
+*.env
+appsettings.*.json
+!appsettings.json
