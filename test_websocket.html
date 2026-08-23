@@ -4,28 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nekoframe — System Stats</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-    rel="stylesheet">
+  <title>Nekoframe — Raw WebSocket Data</title>
   <style>
-    :root {
-      --bg: #0a0a0f;
-      --surface: #111118;
-      --surface2: #18181f;
-      --border: #ffffff12;
-      --accent: #7c6ff7;
-      --accent2: #a78bfa;
-      --green: #34d399;
-      --amber: #fbbf24;
-      --red: #f87171;
-      --blue: #60a5fa;
-      --text: #e2e8f0;
-      --muted: #64748b;
-      --font-mono: 'JetBrains Mono', monospace;
-    }
-
     * {
       box-sizing: border-box;
       margin: 0;
@@ -33,254 +13,88 @@
     }
 
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      min-height: 100vh;
-      padding: 24px;
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      padding: 20px;
     }
 
     header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 28px;
+      justify-content: space-between;
+      border-bottom: 1px solid #30363d;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
-    .logo {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 10px;
+    .title-group {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 18px;
+      gap: 10px;
     }
 
-    header h1 {
-      font-size: 1.4rem;
-      font-weight: 600;
-      letter-spacing: -0.5px;
-    }
-
-    header span {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-left: 4px;
-    }
-
-    #status {
+    .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 0.75rem;
-      font-family: var(--font-mono);
       padding: 4px 10px;
-      border-radius: 20px;
-      margin-left: auto;
-      border: 1px solid var(--border);
-      color: var(--muted);
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: bold;
     }
 
-    #status.connected {
-      color: var(--green);
-      border-color: #34d39930;
-      background: #34d39910;
+    .status-badge.connected {
+      background: #238636;
+      color: #ffffff;
     }
 
-    #status.disconnected {
-      color: var(--red);
-      border-color: #f8717130;
-      background: #f8717110;
+    .status-badge.disconnected {
+      background: #da3633;
+      color: #ffffff;
     }
 
-    #status .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-
-    #status.connected .dot {
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.3;
-      }
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 16px;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
-      transition: border-color 0.2s;
-    }
-
-    .card:hover {
-      border-color: #ffffff22;
-    }
-
-    .card-header {
+    .actions {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
+      gap: 8px;
     }
 
-    .card-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 15px;
-      flex-shrink: 0;
-    }
-
-    .card-title {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      font-weight: 600;
-    }
-
-    .card-name {
-      font-size: 0.9rem;
-      font-weight: 500;
-      margin-top: 1px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .stat-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-
-    .stat-label {
-      font-size: 0.78rem;
-      color: var(--muted);
-    }
-
-    .stat-value {
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
-      color: var(--text);
-      font-weight: 500;
-    }
-
-    .bar-wrap {
-      background: var(--surface2);
+    button {
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      padding: 6px 12px;
       border-radius: 6px;
-      height: 6px;
-      overflow: hidden;
-      margin-bottom: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
     }
 
-    .bar {
-      height: 100%;
-      border-radius: 6px;
-      transition: width 0.8s ease;
+    button:hover {
+      background: #30363d;
     }
 
-    .temp-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-family: var(--font-mono);
-      font-size: 0.78rem;
-      font-weight: 500;
-    }
-
-    .temp-cool {
-      background: #34d39915;
-      color: var(--green);
-    }
-
-    .temp-warm {
-      background: #fbbf2415;
-      color: var(--amber);
-    }
-
-    .temp-hot {
-      background: #f8717115;
-      color: var(--red);
-    }
-
-    .disks-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .disk-entry .disk-meta {
+    .meta-bar {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 4px;
+      font-size: 12px;
+      color: #8b949e;
+      margin-bottom: 8px;
     }
 
-    .net-row {
-      display: flex;
-      gap: 16px;
-    }
-
-    .net-col {
-      flex: 1;
-      background: var(--surface2);
-      border-radius: 10px;
-      padding: 12px;
-      text-align: center;
-    }
-
-    .net-label {
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 4px;
-    }
-
-    .net-value {
-      font-family: var(--font-mono);
-      font-size: 1rem;
-      font-weight: 600;
-    }
-
-    .net-unit {
-      font-size: 0.7rem;
-      color: var(--muted);
-      margin-left: 2px;
-    }
-
-    #timestamp {
-      text-align: right;
-      font-size: 0.72rem;
-      font-family: var(--font-mono);
-      color: var(--muted);
-      margin-top: 20px;
+    pre {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: auto;
+      max-height: calc(100vh - 120px);
+      white-space: pre-wrap;
+      word-break: break-word;
     }
   </style>
 </head>
@@ -288,252 +102,84 @@
 <body>
 
   <header>
-    <div class="logo"><img src="Assets/icon.png" alt="Nekoframe Logo" height="32px" width="32px"></div>
-    <div>
-      <h1>Nekoframe <span>System Stats</span></h1>
+    <div class="title-group">
+      <span class="status-badge disconnected" id="status">Disconnected</span>
+      <span>ws://localhost:8181</span>
     </div>
-    <div id="status" class="disconnected">
-      <div class="dot"></div>
-      <span id="status-text">Connecting…</span>
+    <div class="actions">
+      <button id="pause-btn" onclick="togglePause()">Pause</button>
+      <button onclick="copyRaw()">Copy JSON</button>
     </div>
   </header>
 
-  <div class="grid">
-
-    <!-- CPU Card -->
-    <div class="card" id="cpu-card">
-      <div class="card-header">
-        <div class="card-icon" style="background:#7c6ff720;">⚡</div>
-        <div>
-          <div class="card-title">CPU</div>
-          <div class="card-name" id="cpu-name">—</div>
-        </div>
-        <span id="cpu-temp-badge" class="temp-badge temp-cool" style="margin-left:auto;">— °C</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Usage</span>
-        <span class="stat-value" id="cpu-usage">—</span>
-      </div>
-      <div class="bar-wrap">
-        <div class="bar" id="cpu-bar" style="width:0%; background: linear-gradient(90deg,#7c6ff7,#a78bfa);"></div>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Frequency</span>
-        <span class="stat-value" id="cpu-freq">—</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Cores / Threads</span>
-        <span class="stat-value" id="cpu-cores">—</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Power</span>
-        <span class="stat-value" id="cpu-power">—</span>
-      </div>
-    </div>
-
-    <!-- GPU Card -->
-    <div class="card" id="gpu-card">
-      <div class="card-header">
-        <div class="card-icon" style="background:#34d39920;">🎮</div>
-        <div>
-          <div class="card-title">GPU</div>
-          <div class="card-name" id="gpu-name">—</div>
-        </div>
-        <span id="gpu-temp-badge" class="temp-badge temp-cool" style="margin-left:auto;">— °C</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Usage</span>
-        <span class="stat-value" id="gpu-usage">—</span>
-      </div>
-      <div class="bar-wrap">
-        <div class="bar" id="gpu-bar" style="width:0%; background: linear-gradient(90deg,#34d399,#6ee7b7);"></div>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">VRAM Used / Total</span>
-        <span class="stat-value" id="gpu-vram">—</span>
-      </div>
-      <div class="bar-wrap">
-        <div class="bar" id="gpu-vram-bar" style="width:0%; background: linear-gradient(90deg,#60a5fa,#93c5fd);"></div>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Power</span>
-        <span class="stat-value" id="gpu-power">—</span>
-      </div>
-    </div>
-
-    <!-- RAM Card -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon" style="background:#60a5fa20;">💾</div>
-        <div>
-          <div class="card-title">Memory</div>
-          <div class="card-name" id="ram-summary">—</div>
-        </div>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Used / Total</span>
-        <span class="stat-value" id="ram-detail">—</span>
-      </div>
-      <div class="bar-wrap">
-        <div class="bar" id="ram-bar" style="width:0%; background: linear-gradient(90deg,#60a5fa,#93c5fd);"></div>
-      </div>
-    </div>
-
-    <!-- Network Card -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon" style="background:#fbbf2420;">🌐</div>
-        <div>
-          <div class="card-title">Network</div>
-          <div class="card-name">Live Traffic</div>
-        </div>
-      </div>
-      <div class="net-row">
-        <div class="net-col">
-          <div class="net-label">↑ Upload</div>
-          <div class="net-value" id="net-up" style="color: var(--amber);">—<span class="net-unit">KB/s</span></div>
-        </div>
-        <div class="net-col">
-          <div class="net-label">↓ Download</div>
-          <div class="net-value" id="net-down" style="color: var(--blue);">—<span class="net-unit">KB/s</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Disks Card -->
-    <div class="card" style="grid-column: 1 / -1;">
-      <div class="card-header">
-        <div class="card-icon" style="background:#f8717120;">🗄️</div>
-        <div>
-          <div class="card-title">Storage</div>
-          <div class="card-name">Fixed Drives</div>
-        </div>
-      </div>
-      <div class="disks-list" id="disks-list">
-        <div style="color:var(--muted); font-size:0.8rem;">Waiting for data…</div>
-      </div>
-    </div>
-
+  <div class="meta-bar">
+    <span id="msg-count">Messages received: 0</span>
+    <span id="last-updated">Last received: —</span>
   </div>
 
-  <div id="timestamp">Last update: —</div>
+  <pre id="raw-output">Waiting for WebSocket connection...</pre>
 
   <script>
     const WS_URL = 'ws://localhost:8181';
     let ws = null;
+    let isPaused = false;
+    let messageCount = 0;
+    let latestRawText = '';
+
+    const statusEl = document.getElementById('status');
+    const rawOutputEl = document.getElementById('raw-output');
+    const msgCountEl = document.getElementById('msg-count');
+    const lastUpdatedEl = document.getElementById('last-updated');
+    const pauseBtn = document.getElementById('pause-btn');
 
     function connect() {
-      setStatus(false, 'Connecting…');
+      statusEl.textContent = 'Connecting...';
+      statusEl.className = 'status-badge disconnected';
+
       ws = new WebSocket(WS_URL);
 
-      ws.onopen = () => setStatus(true, 'Connected · ws://localhost:8181');
+      ws.onopen = () => {
+        statusEl.textContent = 'Connected';
+        statusEl.className = 'status-badge connected';
+      };
 
-      ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          render(data);
-        } catch (err) {
-          console.error('Parse error:', err);
+      ws.onmessage = (event) => {
+        messageCount++;
+        msgCountEl.textContent = `Messages received: ${messageCount}`;
+        lastUpdatedEl.textContent = `Last received: ${new Date().toLocaleTimeString()}`;
+
+        if (!isPaused) {
+          latestRawText = event.data;
+          try {
+            const parsed = JSON.parse(event.data);
+            rawOutputEl.textContent = JSON.stringify(parsed, null, 2);
+          } catch (e) {
+            rawOutputEl.textContent = event.data;
+          }
         }
       };
 
       ws.onclose = () => {
-        setStatus(false, 'Disconnected — retrying in 3s…');
+        statusEl.textContent = 'Disconnected (Retrying in 3s...)';
+        statusEl.className = 'status-badge disconnected';
         setTimeout(connect, 3000);
       };
 
       ws.onerror = () => {
-        setStatus(false, 'Connection error');
+        statusEl.textContent = 'Connection Error';
+        statusEl.className = 'status-badge disconnected';
       };
     }
 
-    function setStatus(ok, text) {
-      const el = document.getElementById('status');
-      el.className = ok ? 'connected' : 'disconnected';
-      document.getElementById('status-text').textContent = text;
+    function togglePause() {
+      isPaused = !isPaused;
+      pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
     }
 
-    function fmt(v, decimals = 1, fallback = '—') {
-      return (v != null && !isNaN(v)) ? Number(v).toFixed(decimals) : fallback;
-    }
-
-    function tempBadge(el, v) {
-      if (v == null) { el.textContent = '— °C'; el.className = 'temp-badge temp-cool'; return; }
-      el.textContent = `${fmt(v, 1)} °C`;
-      if (v < 60) el.className = 'temp-badge temp-cool';
-      else if (v < 80) el.className = 'temp-badge temp-warm';
-      else el.className = 'temp-badge temp-hot';
-    }
-
-    function barColor(pct) {
-      if (pct < 60) return 'linear-gradient(90deg,#34d399,#6ee7b7)';
-      if (pct < 80) return 'linear-gradient(90deg,#fbbf24,#fde68a)';
-      return 'linear-gradient(90deg,#f87171,#fca5a5)';
-    }
-
-    function render(d) {
-      // CPU
-      document.getElementById('cpu-name').textContent = d.cpu?.name ?? '—';
-      document.getElementById('cpu-usage').textContent = fmt(d.cpu?.usage_percent) + '%';
-      const cpuBar = document.getElementById('cpu-bar');
-      cpuBar.style.width = (d.cpu?.usage_percent ?? 0) + '%';
-      cpuBar.style.background = barColor(d.cpu?.usage_percent ?? 0);
-      document.getElementById('cpu-freq').textContent = d.cpu?.frequency_mhz ? (d.cpu.frequency_mhz / 1000).toFixed(2) + ' GHz' : '—';
-      document.getElementById('cpu-cores').textContent = d.cpu ? `${d.cpu.cores}C / ${d.cpu.threads}T` : '—';
-      document.getElementById('cpu-power').textContent = d.cpu?.power_watts != null ? fmt(d.cpu.power_watts) + ' W' : '—';
-      tempBadge(document.getElementById('cpu-temp-badge'), d.cpu?.temp_celsius);
-
-      // GPU
-      document.getElementById('gpu-name').textContent = d.gpu?.name ?? '—';
-      document.getElementById('gpu-usage').textContent = fmt(d.gpu?.usage_percent) + '%';
-      const gpuBar = document.getElementById('gpu-bar');
-      gpuBar.style.width = (d.gpu?.usage_percent ?? 0) + '%';
-      gpuBar.style.background = barColor(d.gpu?.usage_percent ?? 0);
-      const vramUsed = d.gpu?.vram_used_mb ? (d.gpu.vram_used_mb / 1024).toFixed(2) : '—';
-      const vramTotal = d.gpu?.vram_total_mb ? (d.gpu.vram_total_mb / 1024).toFixed(2) : '—';
-      document.getElementById('gpu-vram').textContent = `${vramUsed} GB / ${vramTotal} GB`;
-      const vramPct = d.gpu?.vram_total_mb > 0 ? (d.gpu.vram_used_mb / d.gpu.vram_total_mb * 100) : 0;
-      document.getElementById('gpu-vram-bar').style.width = vramPct + '%';
-      document.getElementById('gpu-power').textContent = d.gpu?.power_watts != null ? fmt(d.gpu.power_watts) + ' W' : '—';
-      tempBadge(document.getElementById('gpu-temp-badge'), d.gpu?.temp_celsius);
-
-      // RAM
-      const ramPct = d.ram?.usage_percent ?? 0;
-      document.getElementById('ram-summary').textContent = ramPct ? `${fmt(ramPct)}% Used` : '—';
-      document.getElementById('ram-detail').textContent = d.ram ? `${fmt(d.ram.used_gb, 2)} GB / ${fmt(d.ram.total_gb, 2)} GB` : '—';
-      const ramBar = document.getElementById('ram-bar');
-      ramBar.style.width = ramPct + '%';
-      ramBar.style.background = barColor(ramPct);
-
-      // Network
-      function fmtSpeed(kbps) {
-        if (kbps == null) return '—';
-        if (kbps >= 1024) return `${(kbps / 1024).toFixed(2)} <span class="net-unit">MB/s</span>`;
-        return `${fmt(kbps, 1)} <span class="net-unit">KB/s</span>`;
-      }
-      document.getElementById('net-up').innerHTML = fmtSpeed(d.network?.upload_kbps);
-      document.getElementById('net-down').innerHTML = fmtSpeed(d.network?.download_kbps);
-
-      // Disks
-      const diskList = document.getElementById('disks-list');
-      if (d.disks?.length) {
-        diskList.innerHTML = d.disks.map(disk => {
-          const pct = disk.usage_percent ?? 0;
-          const color = barColor(pct);
-          return `
-          <div class="disk-entry">
-            <div class="disk-meta">
-              <span class="stat-label">${disk.label || disk.name} <span style="color:var(--muted);font-size:0.7rem;">(${disk.drive_type ?? ''})</span></span>
-              <span class="stat-value">${fmt(disk.used_gb, 1)} GB / ${fmt(disk.total_gb, 1)} GB · <span style="color:var(--muted)">${fmt(pct)}%</span></span>
-            </div>
-            <div class="bar-wrap"><div class="bar" style="width:${pct}%; background:${color};"></div></div>
-          </div>`;
-        }).join('');
-      }
-
-      // Timestamp
-      const ts = d.timestamp ? new Date(d.timestamp).toLocaleTimeString() : '—';
-      document.getElementById('timestamp').textContent = `Last update: ${ts}`;
+    function copyRaw() {
+      navigator.clipboard.writeText(rawOutputEl.textContent)
+        .then(() => alert('Raw JSON copied to clipboard!'))
+        .catch(err => console.error('Failed to copy: ', err));
     }
 
     connect();
