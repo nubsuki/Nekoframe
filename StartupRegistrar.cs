@@ -3,102 +3,58 @@ using System.Runtime.InteropServices;
 
 namespace Nekoframe;
 
-// Registers Nekoframe as a Windows Scheduled Task at user logon with highest privileges.
-// This allows the app to auto-start with admin rights on every boot without showing a UAC prompt.
+// Manages the Windows Scheduled Task that auto-starts Nekoframe at logon with
+// highest privileges — avoids a UAC prompt on every boot via Task Scheduler.
 public static class StartupRegistrar
 {
     private const string TaskName = "Nekoframe System Stats";
 
-    // Checks if the Scheduled Task exists. If not, creates it.
-
     public static void EnsureScheduledTask()
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            Console.WriteLine("[Startup] Not Windows — skipping task registration.");
-            return;
-        }
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
 
         try
         {
-            if (TaskExists())
-            {
-                Console.WriteLine("[Startup] Scheduled task already registered. ✓");
-                return;
-            }
-
-            Console.WriteLine("[Startup] Registering startup task for the first time...");
+            if (TaskExists()) return;
 
             var exePath = Process.GetCurrentProcess().MainModule?.FileName;
-            if (string.IsNullOrEmpty(exePath))
-            {
-                Console.WriteLine("[Startup] Could not determine executable path. Skipping task registration.");
-                return;
-            }
+            if (string.IsNullOrEmpty(exePath)) return;
 
-            // Build the XML task definition
             var xml = BuildTaskXml(exePath);
             var xmlPath = Path.Combine(Path.GetTempPath(), "nekoframe_task.xml");
             File.WriteAllText(xmlPath, xml, System.Text.Encoding.Unicode);
 
-            try
-            {
-                // schtasks /Create /TN "TaskName" /XML "path.xml" /F
-                RunSchtasks($"/Create /TN \"{TaskName}\" /XML \"{xmlPath}\" /F");
-                Console.WriteLine($"[Startup] Task '{TaskName}' registered. Nekoframe will auto-start silently on next boot. ✓");
-            }
-            finally
-            {
-                // Clean up temp XML
-                if (File.Exists(xmlPath))
-                    File.Delete(xmlPath);
-            }
+            try   { RunSchtasks($"/Create /TN \"{TaskName}\" /XML \"{xmlPath}\" /F"); }
+            finally { if (File.Exists(xmlPath)) File.Delete(xmlPath); }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Startup] Warning: Could not register scheduled task: {ex.Message}");
-            Console.WriteLine("[Startup] You can still use Nekoframe manually. Run as Administrator to register the startup task.");
+            Console.WriteLine($"[Startup] Could not register scheduled task: {ex.Message}");
         }
     }
 
-
-    // Removes the scheduled task
     public static void RemoveScheduledTask()
     {
-        try
-        {
-            RunSchtasks($"/Delete /TN \"{TaskName}\" /F");
-            Console.WriteLine($"[Startup] Task '{TaskName}' removed.");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Startup] Could not remove task: {ex.Message}");
-        }
+        try   { RunSchtasks($"/Delete /TN \"{TaskName}\" /F"); }
+        catch (Exception ex) { Console.WriteLine($"[Startup] Could not remove task: {ex.Message}"); }
     }
 
-    private static bool TaskExists()
+    public static bool TaskExists()
     {
-        try
-        {
-            var result = RunSchtasks($"/Query /TN \"{TaskName}\" /FO LIST");
-            return result.ExitCode == 0;
-        }
-        catch
-        {
-            return false;
-        }
+        try   { return RunSchtasks($"/Query /TN \"{TaskName}\" /FO LIST").ExitCode == 0; }
+        catch { return false; }
     }
 
     private static (int ExitCode, string Output) RunSchtasks(string arguments)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = "schtasks.exe",
-            Arguments = arguments,
-            UseShellExecute = false,
+            FileName               = "schtasks.exe",
+            Arguments              = arguments,
+            UseShellExecute        = false,
             RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
+            RedirectStandardError  = true,
+            CreateNoWindow         = true,
         };
 
         using var proc = Process.Start(psi) ?? throw new Exception("Failed to start schtasks.exe");
@@ -107,9 +63,8 @@ public static class StartupRegistrar
         return (proc.ExitCode, output);
     }
 
-    // Generates the task XML definition.
-    // RunLevel=HighestAvailable ensures it runs as admin without a UAC prompt (via Task Scheduler).
-    
+    // RunLevel=HighestAvailable → runs as admin at logon without a UAC prompt each boot.
+    // Delay PT5S → gives the desktop time to load before the app starts.
     private static string BuildTaskXml(string exePath)
     {
         var workingDir = Path.GetDirectoryName(exePath) ?? "";

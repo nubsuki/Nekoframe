@@ -14,6 +14,9 @@ obj/
 publish/
 out/
 
+## Compiled installer output (run build_installer.ps1 to regenerate)
+dist/
+
 ## NuGet
 *.nupkg
 *.snupkg
@@ -29,7 +32,7 @@ desktop.ini
 *.log
 *.tmp
 
-## Compiled binaries (don't commit the exe itself — build it fresh)
+## Compiled binaries (don't commit — build fresh with dotnet build)
 *.exe
 *.dll
 *.pdb

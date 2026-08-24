@@ -10,6 +10,7 @@ public class TrayContext : ApplicationContext
     private readonly SynchronizationContext? _synchronizationContext;
     private StatsFetcher? _fetcher;
     private WebSocketServerManager? _wsServer;
+    private ToolStripMenuItem _startupItem = null!;
 
     public TrayContext()
     {
@@ -24,9 +25,7 @@ public class TrayContext : ApplicationContext
             Visible          = true,
             ContextMenuStrip = BuildContextMenu(),
         };
-        _trayIcon.DoubleClick += (_, _) => OpenDashboard();
 
-        StartupRegistrar.EnsureScheduledTask();
         Task.Run(InitializeServices);
     }
 
@@ -50,7 +49,7 @@ public class TrayContext : ApplicationContext
             _wsServer.Start(_fetcher!, broadcastIntervalMs: 1000);
             _trayIcon.Text = "Nekoframe — ws://localhost:8181";
             ShowBalloon("Nekoframe Running",
-                "System stats ready at ws://localhost:8181\nDouble-click to open dashboard.",
+                "System stats broadcasting at ws://localhost:8181",
                 ToolTipIcon.Info);
         }
         catch (Exception ex)
@@ -89,41 +88,46 @@ public class TrayContext : ApplicationContext
 
     private ContextMenuStrip BuildContextMenu()
     {
-        var menu = new ContextMenuStrip();
+        _startupItem = new ToolStripMenuItem("🚀 Start with Windows", null, (_, _) => ToggleStartup())
+        {
+            Checked = StartupRegistrar.TaskExists(),
+        };
 
+        var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
         {
             new ToolStripMenuItem("🐱 Nekoframe")       { Enabled = false },
             new ToolStripMenuItem("ws://localhost:8181") { Enabled = false, Font = new Font("Segoe UI", 7.5f) },
             new ToolStripSeparator(),
-            new ToolStripMenuItem("📊 Open Dashboard",  null, (_, _) => OpenDashboard()),
-            new ToolStripMenuItem("📄 View Report",     null, (_, _) => OpenReport()),
+            new ToolStripMenuItem("📄 View Report",  null, (_, _) => OpenReport()),
+            _startupItem,
             new ToolStripSeparator(),
-            new ToolStripMenuItem("✖ Exit",             null, (_, _) => ExitApp()),
+            new ToolStripMenuItem("✖ Exit",          null, (_, _) => ExitApp()),
         });
 
         return menu;
     }
 
-    private static void OpenDashboard()
+    private void ToggleStartup()
     {
-        var candidates = new[]
+        try
         {
-            Path.Combine(AppContext.BaseDirectory, "test_websocket.html"),
-            // Also check the project root when running via dotnet run (bin/Debug/net8.0-windows/)
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "test_websocket.html"),
-        };
-
-        foreach (var p in candidates)
-        {
-            var full = Path.GetFullPath(p);
-            if (!File.Exists(full)) continue;
-            Process.Start(new ProcessStartInfo(full) { UseShellExecute = true });
-            return;
+            if (StartupRegistrar.TaskExists())
+            {
+                StartupRegistrar.RemoveScheduledTask();
+                _startupItem.Checked = false;
+            }
+            else
+            {
+                StartupRegistrar.EnsureScheduledTask();
+                _startupItem.Checked = StartupRegistrar.TaskExists();
+            }
         }
-
-        MessageBox.Show("Dashboard file not found.\nExpected: test_websocket.html next to Nekoframe.exe",
-            "Nekoframe", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not update startup setting:\n{ex.Message}",
+                "Nekoframe", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
     }
 
     private void OpenReport()
