@@ -21,8 +21,6 @@ dotnet publish `
 
 if ($LASTEXITCODE -ne 0) { Write-Host "dotnet publish failed." -ForegroundColor Red; exit 1 }
 
-# PublishSingleFile sometimes skips loose Content files — copy manually as a guard
-Copy-Item "test_websocket.html" "$publishDir\test_websocket.html" -Force
 
 Write-Host "[1/3] Done." -ForegroundColor Green
 

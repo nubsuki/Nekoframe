@@ -26,7 +26,7 @@ public class WebSocketServerManager : IDisposable
         NullValueHandling = NullValueHandling.Include,
     };
 
-    public WebSocketServerManager(string address = "ws://0.0.0.0:8181")
+    public WebSocketServerManager(string address = "ws://0.0.0.0:3069")
     {
         // Suppress Fleck's default verbose console logging
         FleckLog.LogAction = (level, message, ex) =>
@@ -84,7 +84,7 @@ public class WebSocketServerManager : IDisposable
             }
         }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(broadcastIntervalMs));
 
-        Console.WriteLine($"[WS] WebSocket server running on ws://localhost:8181");
+        Console.WriteLine($"[WS] WebSocket server running on {_server.Location}");
     }
 
     private void BroadcastAll(string message)

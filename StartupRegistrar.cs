@@ -76,7 +76,7 @@ public static class StartupRegistrar
   <RegistrationInfo>
     <Date>{now}</Date>
     <Author>Nekoframe</Author>
-    <Description>Starts the Nekoframe system stats WebSocket server on user logon. Runs at ws://localhost:8181</Description>
+    <Description>Starts the Nekoframe system stats WebSocket server on user logon. Runs at ws://localhost:3069</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>

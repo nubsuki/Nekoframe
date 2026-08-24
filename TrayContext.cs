@@ -8,6 +8,7 @@ public class TrayContext : ApplicationContext
 {
     private readonly NotifyIcon _trayIcon;
     private readonly SynchronizationContext? _synchronizationContext;
+    private readonly AppConfig _config;
     private StatsFetcher? _fetcher;
     private WebSocketServerManager? _wsServer;
     private ToolStripMenuItem _startupItem = null!;
@@ -16,6 +17,7 @@ public class TrayContext : ApplicationContext
     {
         // Captured here so background threads can post balloon notifications to the UI thread
         _synchronizationContext = SynchronizationContext.Current;
+        _config = AppConfig.Load();
 
         // Show the tray icon before sensor init — LHM can take a few seconds to open
         _trayIcon = new NotifyIcon
@@ -45,11 +47,11 @@ public class TrayContext : ApplicationContext
 
         try
         {
-            _wsServer = new WebSocketServerManager("ws://0.0.0.0:8181");
+            _wsServer = new WebSocketServerManager($"ws://0.0.0.0:{_config.WebSocketPort}");
             _wsServer.Start(_fetcher!, broadcastIntervalMs: 1000);
-            _trayIcon.Text = "Nekoframe — ws://localhost:8181";
+            _trayIcon.Text = $"Nekoframe — ws://localhost:{_config.WebSocketPort}";
             ShowBalloon("Nekoframe Running",
-                "System stats broadcasting at ws://localhost:8181",
+                $"System stats broadcasting at ws://localhost:{_config.WebSocketPort}",
                 ToolTipIcon.Info);
         }
         catch (Exception ex)
@@ -96,8 +98,8 @@ public class TrayContext : ApplicationContext
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
         {
-            new ToolStripMenuItem("🐱 Nekoframe")       { Enabled = false },
-            new ToolStripMenuItem("ws://localhost:8181") { Enabled = false, Font = new Font("Segoe UI", 7.5f) },
+            new ToolStripMenuItem("🐱 Nekoframe")                                          { Enabled = false },
+            new ToolStripMenuItem($"ws://localhost:{_config.WebSocketPort}")               { Enabled = false, Font = new Font("Segoe UI", 7.5f) },
             new ToolStripSeparator(),
             new ToolStripMenuItem("📄 View Report",  null, (_, _) => OpenReport()),
             _startupItem,
@@ -138,7 +140,7 @@ public class TrayContext : ApplicationContext
                 "Nekoframe", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
-        Logger.WriteReportAndOpen(_fetcher.GenerateReport());
+        Logger.WriteReportAndOpen(_fetcher.GenerateReport(_config.WebSocketPort));
     }
 
     private void ExitApp()

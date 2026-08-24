@@ -62,7 +62,7 @@ public class StatsFetcher : IDisposable
     }
 
     // Generates a sensor snapshot for the "View Report" tray action.
-    public string GenerateReport()
+    public string GenerateReport(int port = 3069)
     {
         UpdateAll();
 
@@ -71,7 +71,7 @@ public class StatsFetcher : IDisposable
         var warnings = new List<string>();
 
         sb.AppendLine($"Nekoframe Sensor Report — {now:yyyy-MM-dd HH:mm:ss}");
-        sb.AppendLine($"WebSocket: ws://localhost:8181");
+        sb.AppendLine($"WebSocket: ws://localhost:{port}");
         sb.AppendLine(new string('━', 60));
         sb.AppendLine();
 

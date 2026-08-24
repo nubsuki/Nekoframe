@@ -104,7 +104,7 @@
   <header>
     <div class="title-group">
       <span class="status-badge disconnected" id="status">Disconnected</span>
-      <span>ws://localhost:8181</span>
+      <span>ws://localhost:3069</span>
     </div>
     <div class="actions">
       <button id="pause-btn" onclick="togglePause()">Pause</button>
@@ -120,7 +120,7 @@
   <pre id="raw-output">Waiting for WebSocket connection...</pre>
 
   <script>
-    const WS_URL = 'ws://localhost:8181';
+    const WS_URL = 'ws://localhost:3069';
     let ws = null;
     let isPaused = false;
     let messageCount = 0;
