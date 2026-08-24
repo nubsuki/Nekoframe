@@ -15,6 +15,10 @@ public class StatsFetcher : IDisposable
     private long _lastNetBytesReceived;
     private DateTime _lastNetSample = DateTime.MinValue;
 
+    private readonly Dictionary<string, float> _smoothedFanRpm = new();
+    private const float FanAttackAlpha = 0.8f; 
+    private const float FanDecayAlpha  = 0.3f;
+
     public StatsFetcher()
     {
         _computer = new Computer
@@ -172,12 +176,12 @@ public class StatsFetcher : IDisposable
             switch (sensor.SensorType)
             {
                 case SensorType.Load when sensor.Name.Contains("Total", StringComparison.OrdinalIgnoreCase):
-                    result.UsagePercent = val.Value;
+                    result.UsagePercent = MathF.Round(val.Value, 1);
                     break;
 
                 case SensorType.Clock when sensor.Name.Contains("Core #1", StringComparison.OrdinalIgnoreCase)
                                         || sensor.Name.Contains("CPU Core", StringComparison.OrdinalIgnoreCase):
-                    result.FrequencyMhz = val.Value;
+                    result.FrequencyMhz = MathF.Round(val.Value, 1);
                     break;
 
                 case SensorType.Temperature:
@@ -194,7 +198,7 @@ public class StatsFetcher : IDisposable
                     break;
 
                 case SensorType.Power when sensor.Name.Contains("Package", StringComparison.OrdinalIgnoreCase):
-                    result.PowerWatts = val;
+                    result.PowerWatts = MathF.Round(val.Value, 1);
                     break;
             }
         }
@@ -203,7 +207,7 @@ public class StatsFetcher : IDisposable
             ? MathF.Max(tctlTdie.Value, ccdDie.Value)
             : tctlTdie ?? ccdDie ?? pkgTemp ?? maxCoreTmp;
 
-        result.TempCelsius = lhmTemp ?? GetCpuTempFromWmi();
+        result.TempCelsius = lhmTemp.HasValue ? MathF.Round(lhmTemp.Value, 1) : GetCpuTempFromWmi();
         result.Cores   = GetCpuCoresFromWmi();
         result.Threads = result.Cores * 2;
 
@@ -233,7 +237,7 @@ public class StatsFetcher : IDisposable
             foreach (ManagementObject obj in searcher.Get())
             {
                 var raw = Convert.ToDouble(obj["CurrentTemperature"]);
-                return (float)((raw / 10.0) - 273.15);
+                return (float)Math.Round((raw / 10.0) - 273.15, 1);
             }
         }
         catch { }
@@ -261,30 +265,30 @@ public class StatsFetcher : IDisposable
             switch (sensor.SensorType)
             {
                 case SensorType.Load when sensor.Name.Equals("GPU Core", StringComparison.OrdinalIgnoreCase):
-                    result.UsagePercent = val.Value;
+                    result.UsagePercent = MathF.Round(val.Value, 1);
                     break;
 
                 case SensorType.Temperature when sensor.Name.Equals("GPU Core", StringComparison.OrdinalIgnoreCase):
-                    result.TempCelsius = val;
+                    result.TempCelsius = MathF.Round(val.Value, 1);
                     break;
 
                 case SensorType.Temperature when sensor.Name.Contains("Hot Spot", StringComparison.OrdinalIgnoreCase) 
                                               || sensor.Name.Contains("Junction", StringComparison.OrdinalIgnoreCase):
-                    result.HotspotTempCelsius = val;
+                    result.HotspotTempCelsius = MathF.Round(val.Value, 1);
                     break;
 
                 // SmallData is MB; avoids confusion with D3D dedicated memory
                 case SensorType.SmallData when sensor.Name.Equals("GPU Memory Used", StringComparison.OrdinalIgnoreCase):
-                    result.VramUsedMb = val.Value;
+                    result.VramUsedMb = MathF.Round(val.Value, 1);
                     break;
 
                 case SensorType.SmallData when sensor.Name.Equals("GPU Memory Total", StringComparison.OrdinalIgnoreCase):
-                    result.VramTotalMb = val.Value;
+                    result.VramTotalMb = MathF.Round(val.Value, 1);
                     break;
 
                 case SensorType.Power when sensor.Name.Contains("GPU Package", StringComparison.OrdinalIgnoreCase)
                                         || sensor.Name.Contains("GPU Power", StringComparison.OrdinalIgnoreCase):
-                    result.PowerWatts = val;
+                    result.PowerWatts = MathF.Round(val.Value, 1);
                     break;
             }
         }
@@ -373,7 +377,8 @@ public class StatsFetcher : IDisposable
         foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Storage))
         {
             var tempSensor = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature);
-            result.Add(new StorageStats { Name = hw.Name, TempCelsius = tempSensor?.Value });
+            float? roundedTemp = tempSensor?.Value.HasValue == true ? MathF.Round(tempSensor.Value.Value, 1) : null;
+            result.Add(new StorageStats { Name = hw.Name, TempCelsius = roundedTemp });
         }
         return result;
     }
@@ -417,10 +422,27 @@ public class StatsFetcher : IDisposable
                         ? $"{hw.Name} {sensor.Name}" 
                         : sensor.Name;
 
+                    float currentRpm = sensor.Value.Value;
+
+                    if (!_smoothedFanRpm.TryGetValue(fanName, out float smoothed))
+                    {
+                        smoothed = currentRpm;
+                    }
+                    else
+                    {
+                        // Fast attack for spin-ups to hit peak accurately, slow decay for fluid coast-down
+                        float alpha = currentRpm > smoothed ? FanAttackAlpha : FanDecayAlpha;
+                        smoothed = (currentRpm * alpha) + (smoothed * (1f - alpha));
+                    }
+                    
+                    if (currentRpm == 0 && smoothed < 50) smoothed = 0;
+
+                    _smoothedFanRpm[fanName] = smoothed;
+
                     fans.Add(new FanStats
                     {
                         Name = fanName,
-                        Rpm = sensor.Value.Value
+                        Rpm = MathF.Round(smoothed, 1)
                     });
                 }
             }
