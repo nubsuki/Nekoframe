@@ -7,7 +7,9 @@ public class SystemStats
     public GpuStats Gpu { get; set; } = new();
     public RamStats Ram { get; set; } = new();
     public List<DiskStats> Disks { get; set; } = new();
+    public List<StorageStats> Storage { get; set; } = new();
     public NetworkStats Network { get; set; } = new();
+    public List<FanStats> Fans { get; set; } = new();
 }
 
 public class CpuStats
@@ -26,6 +28,7 @@ public class GpuStats
     public string Name { get; set; } = "Unknown";
     public float UsagePercent { get; set; }
     public float? TempCelsius { get; set; }
+    public float? HotspotTempCelsius { get; set; }
     public float VramUsedMb { get; set; }
     public float VramTotalMb { get; set; }
     public float? PowerWatts { get; set; }
@@ -46,6 +49,18 @@ public class DiskStats
     public float TotalGb { get; set; }
     public float UsagePercent { get; set; }
     public string DriveType { get; set; } = "";
+}
+
+public class StorageStats
+{
+    public string Name { get; set; } = "";
+    public float? TempCelsius { get; set; }
+}
+
+public class FanStats
+{
+    public string Name { get; set; } = "";
+    public float Rpm { get; set; }
 }
 
 public class NetworkStats

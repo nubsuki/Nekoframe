@@ -47,7 +47,9 @@ public class StatsFetcher : IDisposable
             Gpu     = GetGpuStats(),
             Ram     = GetRamStats(),
             Disks   = GetDiskStats(),
+            Storage = GetStorageStats(),
             Network = GetNetworkStats(),
+            Fans    = GetFanStats(),
         };
     }
 
@@ -104,14 +106,25 @@ public class StatsFetcher : IDisposable
             sb.AppendLine($"  GPU   {s.Gpu.Name}");
             sb.AppendLine($"        Usage   {s.Gpu.UsagePercent:F1}%");
             sb.AppendLine($"        Temp    {(s.Gpu.TempCelsius.HasValue ? $"{s.Gpu.TempCelsius:F1} °C" : "⚠ not available")}");
+            if (s.Gpu.HotspotTempCelsius.HasValue)
+                sb.AppendLine($"        Hotspot {s.Gpu.HotspotTempCelsius:F1} °C");
             sb.AppendLine($"        VRAM    {s.Gpu.VramUsedMb:F0} MB / {s.Gpu.VramTotalMb:F0} MB");
             sb.AppendLine($"        Power   {(s.Gpu.PowerWatts.HasValue ? $"{s.Gpu.PowerWatts:F1} W" : "—")}");
             sb.AppendLine();
             sb.AppendLine($"  RAM   {s.Ram.UsedGb:F2} GB / {s.Ram.TotalGb:F2} GB ({s.Ram.UsagePercent:F1}%)");
             sb.AppendLine();
-            foreach (var d in s.Disks)
-                sb.AppendLine($"  DISK  {d.Name} \"{d.Label}\"  {d.UsedGb:F1} / {d.TotalGb:F1} GB ({d.UsagePercent:F1}%)");
+            foreach (var d in s.Storage)
+                sb.AppendLine($"  DRIVE {d.Name} [{(d.TempCelsius.HasValue ? $"{d.TempCelsius:F1} °C" : "—")}]");
             sb.AppendLine();
+            foreach (var d in s.Disks)
+                sb.AppendLine($"  DISK  {d.Name,-2} \"{d.Label}\"  {d.UsedGb:F1} / {d.TotalGb:F1} GB ({d.UsagePercent:F1}%)");
+            sb.AppendLine();
+            if (s.Fans.Count > 0)
+            {
+                foreach (var f in s.Fans)
+                    sb.AppendLine($"  FAN   {f.Name,-25} {f.Rpm:F0} RPM");
+                sb.AppendLine();
+            }
             sb.AppendLine($"  NET   ↑ {s.Network.UploadKbps:F1} KB/s   ↓ {s.Network.DownloadKbps:F1} KB/s");
         }
         catch (Exception ex)
@@ -145,9 +158,7 @@ public class StatsFetcher : IDisposable
 
         result.Name = cpu.Name;
 
-        // AMD Zen exposes multiple temperature sensors. Priority: Tctl/Tdie (matches cooler
-        // software) > CCD chiplet die > Package > per-core hottest. We take max(Tctl, CCD)
-        // because on some dies the chiplet can read hotter than the reported Tdie.
+        // Priority: Tctl/Tdie > CCD chiplet die > Package > per-core hottest.
         float? tctlTdie   = null;
         float? ccdDie     = null;
         float? pkgTemp    = null;
@@ -212,8 +223,7 @@ public class StatsFetcher : IDisposable
         return Environment.ProcessorCount / 2;
     }
 
-    // WMI fallback for CPUs where LHM can't read temperature.
-    // Raw value is in tenths of Kelvin → convert to Celsius.
+    // WMI fallback for CPUs where LHM can't read temperature. Raw value is in tenths of Kelvin.
     private static float? GetCpuTempFromWmi()
     {
         try
@@ -258,7 +268,12 @@ public class StatsFetcher : IDisposable
                     result.TempCelsius = val;
                     break;
 
-                // SmallData is MB; avoids confusion with D3D dedicated memory which can differ
+                case SensorType.Temperature when sensor.Name.Contains("Hot Spot", StringComparison.OrdinalIgnoreCase) 
+                                              || sensor.Name.Contains("Junction", StringComparison.OrdinalIgnoreCase):
+                    result.HotspotTempCelsius = val;
+                    break;
+
+                // SmallData is MB; avoids confusion with D3D dedicated memory
                 case SensorType.SmallData when sensor.Name.Equals("GPU Memory Used", StringComparison.OrdinalIgnoreCase):
                     result.VramUsedMb = val.Value;
                     break;
@@ -305,6 +320,10 @@ public class StatsFetcher : IDisposable
         foreach (var sensor in ram.Sensors)
         {
             if (sensor.SensorType != SensorType.Data) continue;
+            
+            // Skip "Used Virtual Memory" / "Available Virtual Memory" (which is physical RAM + Swap)
+            if (sensor.Name.Contains("Virtual", StringComparison.OrdinalIgnoreCase)) continue;
+
             if (sensor.Name.Contains("Used", StringComparison.OrdinalIgnoreCase))
                 usedGb = sensor.Value;
             else if (sensor.Name.Contains("Available", StringComparison.OrdinalIgnoreCase))
@@ -348,15 +367,28 @@ public class StatsFetcher : IDisposable
         return new RamStats();
     }
 
-    private static List<DiskStats> GetDiskStats()
+    private List<StorageStats> GetStorageStats()
+    {
+        var result = new List<StorageStats>();
+        foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Storage))
+        {
+            var tempSensor = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature);
+            result.Add(new StorageStats { Name = hw.Name, TempCelsius = tempSensor?.Value });
+        }
+        return result;
+    }
+
+    private List<DiskStats> GetDiskStats()
     {
         var result = new List<DiskStats>();
-        foreach (var drive in DriveInfo.GetDrives())
+        var logicalDrives = DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed);
+
+        foreach (var drive in logicalDrives)
         {
-            if (!drive.IsReady || drive.DriveType != DriveType.Fixed) continue;
             var totalGb = drive.TotalSize / (1024f * 1024f * 1024f);
             var freeGb  = drive.AvailableFreeSpace / (1024f * 1024f * 1024f);
             var usedGb  = totalGb - freeGb;
+            
             result.Add(new DiskStats
             {
                 Name         = drive.Name,
@@ -367,7 +399,33 @@ public class StatsFetcher : IDisposable
                 DriveType    = drive.DriveFormat ?? "Unknown",
             });
         }
+        
         return result;
+    }
+
+    private List<FanStats> GetFanStats()
+    {
+        var fans = new List<FanStats>();
+        foreach (var hw in _computer.Hardware)
+        {
+            foreach (var sensor in hw.Sensors)
+            {
+                if (sensor.SensorType == SensorType.Fan && sensor.Value.HasValue)
+                {
+                    // Prefix with hardware name for clarity if multiple things have "Fan #1"
+                    string fanName = sensor.Name.StartsWith("Fan", StringComparison.OrdinalIgnoreCase) 
+                        ? $"{hw.Name} {sensor.Name}" 
+                        : sensor.Name;
+
+                    fans.Add(new FanStats
+                    {
+                        Name = fanName,
+                        Rpm = sensor.Value.Value
+                    });
+                }
+            }
+        }
+        return fans;
     }
 
     private NetworkStats GetNetworkStats()
@@ -397,7 +455,6 @@ public class StatsFetcher : IDisposable
                 DownloadKbps = MathF.Max(0, MathF.Round(lhmDown.Value, 2)),
             };
 
-        // LHM throughput not available — calculate manually from byte delta
         return GetNetworkFromDelta();
     }
 
