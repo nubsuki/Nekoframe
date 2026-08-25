@@ -96,6 +96,5 @@ begin
   if CurPageID = wpFinished then
     WizardForm.FinishedLabel.Caption :=
       'Nekoframe has been installed.' + #13#10 + #13#10 +
-      'Right-click the tray icon ' + #8594 + ' "Start with Windows" to toggle auto-start at any time.' + #13#10 +
-      'You can also manage it in Task Manager ' + #8594 + ' Startup Apps.';
+      'Right-click the tray icon ' + #8594 + ' "Start with Windows" to toggle auto-start at any time.';
 end;
