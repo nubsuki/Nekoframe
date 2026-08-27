@@ -19,8 +19,12 @@ public class StatsFetcher : IDisposable
     private const float FanAttackAlpha = 0.8f; 
     private const float FanDecayAlpha  = 0.3f;
 
-    public StatsFetcher()
+    private readonly Dictionary<int, (TimeSpan TotalTime, DateTime Timestamp)> _processCpuHistory = new();
+    private readonly AppConfig _config;
+
+    public StatsFetcher(AppConfig config)
     {
+        _config = config;
         _computer = new Computer
         {
             IsCpuEnabled = true,
@@ -47,6 +51,10 @@ public class StatsFetcher : IDisposable
         return new SystemStats
         {
             Timestamp = DateTime.UtcNow.ToString("o"),
+            Username  = GetUserFullName(),
+            SystemName    = Environment.MachineName,
+            ProcessCount = System.Diagnostics.Process.GetProcesses().Length,
+            TopProcesses = GetTopProcesses(),
             Cpu     = GetCpuStats(),
             Gpu     = GetGpuStats(),
             Ram     = GetRamStats(),
@@ -65,6 +73,90 @@ public class StatsFetcher : IDisposable
             foreach (var sub in hardware.SubHardware)
                 sub.Update();
         }
+    }
+
+    private List<ProcessStats> GetTopProcesses(int count = 10)
+    {
+        var processes = System.Diagnostics.Process.GetProcesses();
+        var currentPids = new HashSet<int>(processes.Select(p => p.Id));
+        var now = DateTime.UtcNow;
+        var statsList = new List<ProcessStats>();
+
+        foreach (var p in processes)
+        {
+            try
+            {
+                if (p.Id == 0 || p.Id == 4) continue; // Idle and System
+                
+                // Hide background system services if toggled off (Session 0 is for services)
+                if (!_config.ShowSystemProcesses && p.SessionId == 0) continue;
+                
+                var totalTime = p.TotalProcessorTime;
+                float usage = 0;
+                
+                if (_processCpuHistory.TryGetValue(p.Id, out var history))
+                {
+                    var timeDelta = (now - history.Timestamp).TotalMilliseconds;
+                    var cpuDelta = (totalTime - history.TotalTime).TotalMilliseconds;
+                    
+                    if (timeDelta > 0)
+                    {
+                        usage = (float)(cpuDelta / (timeDelta * Environment.ProcessorCount) * 100.0);
+                    }
+                }
+                
+                _processCpuHistory[p.Id] = (totalTime, now);
+                
+                statsList.Add(new ProcessStats
+                {
+                    Pid = p.Id,
+                    Name = p.ProcessName,
+                    CpuUsage = MathF.Max(0, usage),
+                    MemoryUsage = p.WorkingSet64
+                });
+            }
+            catch { }
+            finally { p.Dispose(); }
+        }
+        
+        var keysToRemove = _processCpuHistory.Keys.Where(k => !currentPids.Contains(k)).ToList();
+        foreach (var k in keysToRemove) _processCpuHistory.Remove(k);
+
+        // Group by Name so apps with multiple processes are merged
+        var grouped = statsList
+            .GroupBy(x => x.Name)
+            .Select(g => new ProcessStats
+            {
+                Pid = g.First().Pid,
+                Name = g.Key,
+                CpuUsage = MathF.Round(g.Sum(x => x.CpuUsage), 1),
+                MemoryUsage = g.Sum(x => x.MemoryUsage)
+            })
+            .ToList();
+
+        // Score: 1% CPU is weighted equivalently to 100 MB RAM
+        return grouped
+            .OrderByDescending(x => (x.CpuUsage * 100) + (x.MemoryUsage / 1048576.0))
+            .Take(count)
+            .ToList();
+    }
+
+    private static string GetUserFullName()
+    {
+        try
+        {
+            var username = Environment.UserName;
+            using var searcher = new ManagementObjectSearcher(
+                $"SELECT FullName FROM Win32_UserAccount WHERE Name='{username}'");
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                var fullName = obj["FullName"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(fullName))
+                    return fullName;
+            }
+        }
+        catch { }
+        return Environment.UserName;
     }
 
     // Generates a sensor snapshot for the "View Report" tray action.

@@ -9,6 +9,7 @@ public class AppConfig
     private static readonly string ConfigPath = Path.Combine(Logger.LogDir, "config.json");
 
     public int WebSocketPort { get; set; } = 3069;
+    public bool ShowSystemProcesses { get; set; } = false;
 
     public static AppConfig Load()
     {

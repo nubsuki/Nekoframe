@@ -3,6 +3,10 @@ namespace Nekoframe.Models;
 public class SystemStats
 {
     public string Timestamp { get; set; } = DateTime.UtcNow.ToString("o");
+    public string Username { get; set; } = "";
+    public string SystemName { get; set; } = "";
+    public int ProcessCount { get; set; }
+    public List<ProcessStats> TopProcesses { get; set; } = new();
     public CpuStats Cpu { get; set; } = new();
     public GpuStats Gpu { get; set; } = new();
     public RamStats Ram { get; set; } = new();
@@ -67,4 +71,12 @@ public class NetworkStats
 {
     public float UploadKbps { get; set; }
     public float DownloadKbps { get; set; }
+}
+
+public class ProcessStats
+{
+    public string Name { get; set; } = "";
+    public int Pid { get; set; }
+    public float CpuUsage { get; set; }
+    public long MemoryUsage { get; set; }
 }

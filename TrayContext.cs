@@ -35,14 +35,14 @@ public class TrayContext : ApplicationContext
     {
         try
         {
-            _fetcher = new StatsFetcher();
+            _fetcher = new StatsFetcher(_config);
         }
         catch (Exception ex)
         {
             ShowBalloon("Nekoframe — Sensor Warning",
                 $"Some sensors could not be read: {ex.Message}",
                 ToolTipIcon.Warning);
-            try { _fetcher = new StatsFetcher(); } catch { }
+            try { _fetcher = new StatsFetcher(_config); } catch { }
         }
 
         try
@@ -95,6 +95,11 @@ public class TrayContext : ApplicationContext
             Checked = StartupRegistrar.TaskExists(),
         };
 
+        var sysProcItem = new ToolStripMenuItem("⚙ Show System Processes", null, (_, _) => ToggleSystemProcesses())
+        {
+            Checked = _config.ShowSystemProcesses,
+        };
+
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
         {
@@ -102,6 +107,7 @@ public class TrayContext : ApplicationContext
             new ToolStripMenuItem($"ws://localhost:{_config.WebSocketPort}")               { Enabled = false, Font = new Font("Segoe UI", 7.5f) },
             new ToolStripSeparator(),
             new ToolStripMenuItem("📄 View Report",  null, (_, _) => OpenReport()),
+            sysProcItem,
             _startupItem,
             new ToolStripSeparator(),
             new ToolStripMenuItem("✖ Exit",          null, (_, _) => ExitApp()),
@@ -129,6 +135,16 @@ public class TrayContext : ApplicationContext
         {
             MessageBox.Show($"Could not update startup setting:\n{ex.Message}",
                 "Nekoframe", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void ToggleSystemProcesses()
+    {
+        _config.ShowSystemProcesses = !_config.ShowSystemProcesses;
+        _config.Save();
+        if (_trayIcon.ContextMenuStrip?.Items[4] is ToolStripMenuItem item)
+        {
+            item.Checked = _config.ShowSystemProcesses;
         }
     }
 
