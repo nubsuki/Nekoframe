@@ -17,4 +17,13 @@ Application.EnableVisualStyles();
 Application.SetCompatibleTextRenderingDefault(false);
 Application.SetHighDpiMode(HighDpiMode.SystemAware);
 
+// Prevent multiple instances and allow installer to detect running app
+bool createdNew;
+using var mutex = new Mutex(true, "NekoframeMutex", out createdNew);
+if (!createdNew)
+{
+    MessageBox.Show("Nekoframe is already running.", "Nekoframe", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    return;
+}
+
 Application.Run(new TrayContext());
