@@ -1,0 +1,78 @@
+name: Build & Draft Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 1.0, 1.1)'
+        required: true
+        default: '1.0'
+        type: string
+      is_draft:
+        description: 'Create Draft Release'
+        required: true
+        default: true
+        type: boolean
+      is_prerelease:
+        description: 'Create Pre-release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release Nekoframe
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress
+
+      - name: Parse Version & Build Installer
+        id: build
+        shell: pwsh
+        run: |
+          $rawVersion = "${{ github.event.inputs.version }}".Trim()
+          $cleanVersion = $rawVersion -replace '^v', ''
+          $tagName = if ($rawVersion.StartsWith('v')) { $rawVersion } else { "v$cleanVersion" }
+
+          Write-Host "Building Nekoframe version: $cleanVersion (Tag: $tagName)"
+          
+          # Run the installer build script
+          .\build_installer.ps1 -Version $cleanVersion
+
+          # Create a copy with version in filename
+          if (Test-Path "dist\NekoframeSetup.exe") {
+              Copy-Item "dist\NekoframeSetup.exe" "dist\Nekoframe-Setup-$tagName.exe"
+          }
+
+          # Output variables for release step
+          "tag_name=$tagName" >> $env:GITHUB_OUTPUT
+          "version=$cleanVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.build.outputs.tag_name }}
+          name: Nekoframe ${{ steps.build.outputs.tag_name }}
+          draft: ${{ github.event.inputs.is_draft }}
+          prerelease: ${{ github.event.inputs.is_prerelease }}
+          files: |
+            dist/NekoframeSetup.exe
+            dist/Nekoframe-Setup-*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
