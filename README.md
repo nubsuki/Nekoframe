@@ -6,12 +6,15 @@
   <a href="https://youtu.be/lnRToLpockw">
     <img src="https://img.youtube.com/vi/lnRToLpockw/maxresdefault.jpg" alt="Wallux Video Showcase" width="100%" />
   </a>
-  <p><em>▶️ Watch the Video Showcase on YouTube</em></p>
+  <p>
+    <a href="https://youtu.be/lnRToLpockw">▶️ <b>Watch Video Showcase</b></a> &nbsp;|&nbsp; 
+    <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3791578910">🎮 <b>Wallux on Steam Workshop</b></a>
+  </p>
 </div>
 
 **Nekoframe** is a lightweight, background Windows service that collects real-time hardware telemetry (CPU, GPU, RAM, Disks, Network, and Fans) and broadcasts it locally over a WebSocket connection.
 
-It's designed to act as a silent, ultra-efficient data provider for external dashboards, hardware monitoring displays, stream overlays, or local web apps.
+It's designed to act as a silent, ultra-efficient data provider for external dashboards, hardware monitoring displays, stream overlays, or local web apps [Wallux Wallpaper Engine HUD](https://steamcommunity.com/sharedfiles/filedetails/?id=3791578910).
 
 ---
 
