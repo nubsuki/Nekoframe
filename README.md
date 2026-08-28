@@ -2,6 +2,13 @@
 
 ![Nekoframe Preview](preview.png)
 
+<div align="center">
+  <a href="https://youtu.be/lnRToLpockw">
+    <img src="https://img.youtube.com/vi/lnRToLpockw/maxresdefault.jpg" alt="Wallux Video Showcase" width="100%" />
+  </a>
+  <p><em>▶️ Watch the Video Showcase on YouTube</em></p>
+</div>
+
 **Nekoframe** is a lightweight, background Windows service that collects real-time hardware telemetry (CPU, GPU, RAM, Disks, Network, and Fans) and broadcasts it locally over a WebSocket connection.
 
 It's designed to act as a silent, ultra-efficient data provider for external dashboards, hardware monitoring displays, stream overlays, or local web apps.
@@ -35,3 +42,7 @@ You can easily change the default WebSocket port.
 4. Restart Nekoframe from the system tray.
 
 ---
+
+## License
+
+This project is for personal use and is distributed "as-is".use at your own risk.
