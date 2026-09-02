@@ -404,21 +404,37 @@ public class StatsFetcher : IDisposable
         }
 
         if (result.VramTotalMb == 0)
-            result.VramTotalMb = GetVramTotalFromWmi();
+            result.VramTotalMb = GetVramTotalFromWmi(gpu.Name);
 
         return result;
     }
 
-    private static float GetVramTotalFromWmi()
+    private static float GetVramTotalFromWmi(string? preferredGpuName = null)
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher("SELECT AdapterRAM FROM Win32_VideoController");
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT AdapterRAM, Caption, AdapterCompatibility FROM Win32_VideoController");
+            float fallback = 0;
             foreach (ManagementObject obj in searcher.Get())
             {
                 var ram = Convert.ToInt64(obj["AdapterRAM"]);
-                if (ram > 0) return ram / (1024f * 1024f);
+                if (ram <= 0) continue;
+
+                // If a preferred GPU name was provided, try to match it against Caption or Compatibility
+                if (!string.IsNullOrWhiteSpace(preferredGpuName))
+                {
+                    var caption = obj["Caption"]?.ToString() ?? "";
+                    var compat  = obj["AdapterCompatibility"]?.ToString() ?? "";
+                    if (caption.Contains(preferredGpuName, StringComparison.OrdinalIgnoreCase)
+                        || preferredGpuName.Contains(caption, StringComparison.OrdinalIgnoreCase)
+                        || compat.Contains(preferredGpuName,  StringComparison.OrdinalIgnoreCase))
+                        return ram / (1024f * 1024f);
+                }
+
+                if (fallback == 0) fallback = ram / (1024f * 1024f); // keep first as last-resort
             }
+            return fallback;
         }
         catch { }
         return 0;

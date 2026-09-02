@@ -156,6 +156,7 @@ public class TrayContext : ApplicationContext
             _gpuMenuItem.Enabled = gpus.Count > 1; // no point showing selector when there is only one GPU
         }
 
+        // Marshal to the UI thread via the sync context.
         if (_synchronizationContext != null && SynchronizationContext.Current != _synchronizationContext)
             _synchronizationContext.Post(_ => Build(), null);
         else

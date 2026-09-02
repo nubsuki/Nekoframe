@@ -26,4 +26,6 @@ if (!createdNew)
     return;
 }
 
+SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
+
 Application.Run(new TrayContext());
