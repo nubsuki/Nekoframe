@@ -12,6 +12,7 @@ public class TrayContext : ApplicationContext
     private StatsFetcher? _fetcher;
     private WebSocketServerManager? _wsServer;
     private ToolStripMenuItem _startupItem = null!;
+    private ToolStripMenuItem _gpuMenuItem = null!;
 
     public TrayContext()
     {
@@ -61,6 +62,9 @@ public class TrayContext : ApplicationContext
                 $"Failed to start WebSocket server: {ex.Message}",
                 ToolTipIcon.Error);
         }
+
+        // Populate GPU submenu now that the fetcher (and LHM) is ready
+        PopulateGpuMenu();
     }
 
     private static Icon LoadIcon()
@@ -100,6 +104,9 @@ public class TrayContext : ApplicationContext
             Checked = _config.ShowSystemProcesses,
         };
 
+        // GPU submenu — populated later in PopulateGpuMenu() once LHM is ready
+        _gpuMenuItem = new ToolStripMenuItem("🎮 Select GPU") { Enabled = false };
+
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
         {
@@ -108,12 +115,61 @@ public class TrayContext : ApplicationContext
             new ToolStripSeparator(),
             new ToolStripMenuItem("📄 View Report",  null, (_, _) => OpenReport()),
             sysProcItem,
+            _gpuMenuItem,
             _startupItem,
             new ToolStripSeparator(),
             new ToolStripMenuItem("✖ Exit",          null, (_, _) => ExitApp()),
         });
 
         return menu;
+    }
+
+    private void PopulateGpuMenu()
+    {
+        if (_fetcher == null) return;
+        var gpus = _fetcher.GetAvailableGpus();
+
+        void Build()
+        {
+            _gpuMenuItem.DropDownItems.Clear();
+
+            if (gpus.Count == 0)
+            {
+                _gpuMenuItem.DropDownItems.Add(new ToolStripMenuItem("No GPUs detected") { Enabled = false });
+                _gpuMenuItem.Enabled = true;
+                return;
+            }
+
+            foreach (var gpuName in gpus)
+            {
+                var name = gpuName; // capture
+                var item = new ToolStripMenuItem(name)
+                {
+                    CheckOnClick = false,
+                    Checked      = string.Equals(_config.PreferredGpuName, name, StringComparison.OrdinalIgnoreCase)
+                                   || (_config.PreferredGpuName == null && gpuName == gpus[0]),
+                };
+                item.Click += (_, _) => SelectGpu(name);
+                _gpuMenuItem.DropDownItems.Add(item);
+            }
+
+            _gpuMenuItem.Enabled = gpus.Count > 1; // no point showing selector when there is only one GPU
+        }
+
+        if (_synchronizationContext != null && SynchronizationContext.Current != _synchronizationContext)
+            _synchronizationContext.Post(_ => Build(), null);
+        else
+            Build();
+    }
+
+    private void SelectGpu(string gpuName)
+    {
+        _config.PreferredGpuName = gpuName;
+        _config.Save();
+
+        // Update checkmarks in the submenu
+        foreach (ToolStripMenuItem item in _gpuMenuItem.DropDownItems)
+            item.Checked = string.Equals(item.Text, gpuName, StringComparison.OrdinalIgnoreCase);
     }
 
     private void ToggleStartup()

@@ -336,14 +336,32 @@ public class StatsFetcher : IDisposable
         return null;
     }
 
+    // Returns the names of every GPU that LibreHardwareMonitor detected.
+    public IReadOnlyList<string> GetAvailableGpus() =>
+        _computer.Hardware
+            .Where(h => h.HardwareType is HardwareType.GpuNvidia
+                                       or HardwareType.GpuAmd
+                                       or HardwareType.GpuIntel)
+            .Select(h => h.Name)
+            .ToList();
+
     private GpuStats GetGpuStats()
     {
         var result = new GpuStats();
 
-        var gpu = _computer.Hardware.FirstOrDefault(h =>
-            h.HardwareType is HardwareType.GpuNvidia
-                           or HardwareType.GpuAmd
-                           or HardwareType.GpuIntel);
+        // Pick the GPU that the user selected, falling back to the first one found.
+        var gpus = _computer.Hardware
+            .Where(h => h.HardwareType is HardwareType.GpuNvidia
+                                       or HardwareType.GpuAmd
+                                       or HardwareType.GpuIntel)
+            .ToList();
+
+        IHardware? gpu;
+        if (!string.IsNullOrWhiteSpace(_config.PreferredGpuName))
+            gpu = gpus.FirstOrDefault(h => h.Name.Equals(_config.PreferredGpuName, StringComparison.OrdinalIgnoreCase))
+                  ?? gpus.FirstOrDefault();   // graceful fallback if saved name no longer exists
+        else
+            gpu = gpus.FirstOrDefault();
 
         if (gpu == null) return result;
 
