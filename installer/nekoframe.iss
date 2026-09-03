@@ -6,6 +6,7 @@
 #define AppExe       "Nekoframe.exe"
 #define TaskName     "Nekoframe System Stats"
 #define PublishDir   "..\bin\Release\net8.0-windows\win-x64\publish"
+#define PawnIoExe    "dependencies\PawnIO_setup.exe"
 
 [Setup]
 AppId={{F3A7B2C1-D845-4E9F-A312-88C7D6E01234}
@@ -38,6 +39,10 @@ Name: "autostart"; Description: "Start Nekoframe automatically when Windows star
 [Files]
 Source: "{#PublishDir}\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PublishDir}\Assets\*"; DestDir: "{app}\Assets"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PawnIoExe}"; DestDir: "{app}"; Flags: ignoreversion
+
+[Registry]
+Root: HKLM64; Subkey: "Software\Nekoframe"; Flags: uninsdeletekey
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
@@ -45,12 +50,45 @@ Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
+Filename: "{app}\PawnIO_setup.exe"; Parameters: "-install -silent"; Flags: runhidden waituntilterminated; Check: ShouldInstallPawnIO
 Filename: "{app}\{#AppExe}"; Description: "Launch {#AppName} now"; Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallRun]
+Filename: "{app}\PawnIO_setup.exe"; Parameters: "-uninstall -silent"; RunOnceId: "RemovePawnIO"; Flags: runhidden waituntilterminated; Check: ShouldUninstallPawnIO
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ""{#TaskName}"" /F"; RunOnceId: "RemoveStartupTask"; Flags: runhidden waituntilterminated
 
+[UninstallDelete]
+Type: files; Name: "{app}\PawnIO_setup.exe"
+
 [Code]
+var
+  InstalledPawnIOByNekoframe: Boolean;
+
+function IsPawnIoInstalled(): Boolean;
+begin
+  Result := RegKeyExists(HKLM64, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO') or
+            RegKeyExists(HKLM32, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO');
+end;
+
+function ShouldInstallPawnIO(): Boolean;
+begin
+  if not IsPawnIoInstalled() then
+  begin
+    InstalledPawnIOByNekoframe := True;
+    Result := True;
+  end
+  else
+    Result := False;
+end;
+
+function ShouldUninstallPawnIO(): Boolean;
+var
+  Val: Cardinal;
+begin
+  Result := False;
+  if RegQueryDWordValue(HKLM64, 'Software\Nekoframe', 'InstalledPawnIO', Val) then
+    Result := (Val = 1);
+end;
 
 // Registers the Windows Scheduled Task using XML so Nekoframe starts at logon with
 // highest privileges — same approach as StartupRegistrar.cs inside the app.
@@ -89,8 +127,14 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and WizardIsTaskSelected('autostart') then
-    CreateStartupTask(ExpandConstant('{app}\{#AppExe}'));
+  if CurStep = ssPostInstall then
+  begin
+    if InstalledPawnIOByNekoframe then
+      RegWriteDWordValue(HKLM64, 'Software\Nekoframe', 'InstalledPawnIO', 1);
+
+    if WizardIsTaskSelected('autostart') then
+      CreateStartupTask(ExpandConstant('{app}\{#AppExe}'));
+  end;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);

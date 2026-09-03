@@ -44,6 +44,15 @@ if (-not $iscc) {
 
 Write-Host "[2/3] Found: $iscc" -ForegroundColor Green
 
+$depDir = Join-Path $PSScriptRoot "installer\dependencies"
+$pawnIoExe = Join-Path $depDir "PawnIO_setup.exe"
+if (-not (Test-Path $pawnIoExe)) {
+    Write-Host "`nFetching PawnIO kernel driver setup for bundling..." -ForegroundColor Cyan
+    New-Item -ItemType Directory -Force -Path $depDir | Out-Null
+    Invoke-WebRequest -Uri "https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe" -OutFile $pawnIoExe
+    Write-Host "PawnIO fetched successfully." -ForegroundColor Green
+}
+
 Write-Host "`n[3/3] Compiling installer..." -ForegroundColor Cyan
 
 New-Item -ItemType Directory -Force -Path "dist" | Out-Null

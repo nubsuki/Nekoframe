@@ -277,6 +277,7 @@ public class StatsFetcher : IDisposable
                     break;
 
                 case SensorType.Temperature:
+                    if (val.Value <= 0.1f) break;
                     var n = sensor.Name;
                     if (n.Contains("Tctl", StringComparison.OrdinalIgnoreCase)
                         || (n.Contains("Tdie", StringComparison.OrdinalIgnoreCase) && !n.Contains("CCD", StringComparison.OrdinalIgnoreCase)))
@@ -290,7 +291,8 @@ public class StatsFetcher : IDisposable
                     break;
 
                 case SensorType.Power when sensor.Name.Contains("Package", StringComparison.OrdinalIgnoreCase):
-                    result.PowerWatts = MathF.Round(val.Value, 1);
+                    if (val.Value > 0.1f)
+                        result.PowerWatts = MathF.Round(val.Value, 1);
                     break;
             }
         }
@@ -442,7 +444,11 @@ public class StatsFetcher : IDisposable
 
     private RamStats GetRamStats()
     {
-        var ram = _computer.Hardware.FirstOrDefault(h => h.HardwareType == HardwareType.Memory);
+        // Pick physical RAM, skipping "Virtual Memory".
+        var ram = _computer.Hardware.FirstOrDefault(h => h.HardwareType == HardwareType.Memory 
+                                                     && !h.Name.Contains("Virtual", StringComparison.OrdinalIgnoreCase))
+               ?? _computer.Hardware.FirstOrDefault(h => h.HardwareType == HardwareType.Memory);
+
         if (ram == null) return GetRamFromWmi();
 
         float? usedGb = null, availGb = null;
