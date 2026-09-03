@@ -15,6 +15,9 @@ public class TrayContext : ApplicationContext
     private ToolStripMenuItem _startupItem = null!;
     private ToolStripMenuItem _gpuMenuItem  = null!;
     private ToolStripMenuItem _nicMenuItem  = null!;
+    private ToolStripMenuItem _sysProcItem  = null!;
+    private ToolStripMenuItem _updateItem   = null!;
+    private string? _latestReleaseUrl;
 
     public TrayContext()
     {
@@ -30,6 +33,8 @@ public class TrayContext : ApplicationContext
             Visible          = true,
             ContextMenuStrip = BuildContextMenu(),
         };
+
+        _trayIcon.BalloonTipClicked += (_, _) => OnBalloonClicked();
 
         Task.Run(InitializeServices);
     }
@@ -67,6 +72,13 @@ public class TrayContext : ApplicationContext
 
         // Populate device submenus now that the fetcher (and LHM) is ready
         PopulateGpuMenu();
+
+        // Check for updates silently in the background
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(3000);
+            await CheckForUpdatesAsync(manual: false);
+        });
     }
 
     private static Icon LoadIcon()
@@ -101,7 +113,7 @@ public class TrayContext : ApplicationContext
             Checked = StartupRegistrar.TaskExists(),
         };
 
-        var sysProcItem = new ToolStripMenuItem("⚙ Show System Processes", null, (_, _) => ToggleSystemProcesses())
+        _sysProcItem = new ToolStripMenuItem("⚙ Show System Processes", null, (_, _) => ToggleSystemProcesses())
         {
             Checked = _config.ShowSystemProcesses,
         };
@@ -112,6 +124,8 @@ public class TrayContext : ApplicationContext
         _nicMenuItem = new ToolStripMenuItem("📡 Select Network") { Enabled = true  };
         _nicMenuItem.DropDownOpening += (_, _) => RefreshNicMenu();
 
+        _updateItem = new ToolStripMenuItem("🔄 Check for Updates", null, (_, _) => OnUpdateItemClicked());
+
         var ver = typeof(TrayContext).Assembly.GetName().Version;
         string title = ver != null ? $"🐱 Nekoframe v{ver.Major}.{ver.Minor}.{ver.Build}" : "🐱 Nekoframe";
 
@@ -121,8 +135,9 @@ public class TrayContext : ApplicationContext
             new ToolStripMenuItem(title) { Enabled = false },
             new ToolStripMenuItem($"ws://localhost:{_config.WebSocketPort}") { Enabled = false, Font = new Font("Segoe UI", 7.5f) },
             new ToolStripSeparator(),
+            _updateItem,
             new ToolStripMenuItem("📄 View Report", null, (_, _) => OpenReport()),
-            sysProcItem,
+            _sysProcItem,
             _gpuMenuItem,
             _nicMenuItem,
             _startupItem,
@@ -252,10 +267,59 @@ public class TrayContext : ApplicationContext
     {
         _config.ShowSystemProcesses = !_config.ShowSystemProcesses;
         _config.Save();
-        if (_trayIcon.ContextMenuStrip?.Items[4] is ToolStripMenuItem item)
+        _sysProcItem.Checked = _config.ShowSystemProcesses;
+    }
+
+    private void OnBalloonClicked()
+    {
+        if (!string.IsNullOrEmpty(_latestReleaseUrl))
+            UpdateChecker.OpenReleaseUrl(_latestReleaseUrl);
+    }
+
+    private async void OnUpdateItemClicked()
+    {
+        if (!string.IsNullOrEmpty(_latestReleaseUrl))
         {
-            item.Checked = _config.ShowSystemProcesses;
+            UpdateChecker.OpenReleaseUrl(_latestReleaseUrl);
+            return;
         }
+
+        _updateItem.Text = "🔄 Checking for updates…";
+        await CheckForUpdatesAsync(manual: true);
+
+        if (string.IsNullOrEmpty(_latestReleaseUrl))
+            _updateItem.Text = "🔄 Check for Updates";
+    }
+
+    private async Task CheckForUpdatesAsync(bool manual)
+    {
+        var curVer = typeof(TrayContext).Assembly.GetName().Version;
+        var result = await UpdateChecker.CheckAsync(curVer);
+
+        void Apply()
+        {
+            if (result.HasUpdate && result.LatestVersion != null)
+            {
+                _latestReleaseUrl = result.ReleaseUrl;
+                _updateItem.Text = $"⭐ Update Available (v{result.LatestVersion.Major}.{result.LatestVersion.Minor}.{result.LatestVersion.Build})";
+                _updateItem.Font = new Font(_updateItem.Font, FontStyle.Bold);
+
+                ShowBalloon("Nekoframe Update Available",
+                    $"Nekoframe v{result.LatestVersion.Major}.{result.LatestVersion.Minor}.{result.LatestVersion.Build} is available! Click to download.",
+                    ToolTipIcon.Info);
+            }
+            else if (manual)
+            {
+                ShowBalloon("Nekoframe",
+                    $"You are up to date (v{curVer?.Major}.{curVer?.Minor}.{curVer?.Build}).",
+                    ToolTipIcon.Info);
+            }
+        }
+
+        if (_synchronizationContext != null && SynchronizationContext.Current != _synchronizationContext)
+            _synchronizationContext.Post(_ => Apply(), null);
+        else
+            Apply();
     }
 
     private void OpenReport()
