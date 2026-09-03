@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.Net.NetworkInformation;
 using System.Windows.Forms;
 
 namespace Nekoframe;
@@ -12,7 +13,8 @@ public class TrayContext : ApplicationContext
     private StatsFetcher? _fetcher;
     private WebSocketServerManager? _wsServer;
     private ToolStripMenuItem _startupItem = null!;
-    private ToolStripMenuItem _gpuMenuItem = null!;
+    private ToolStripMenuItem _gpuMenuItem  = null!;
+    private ToolStripMenuItem _nicMenuItem  = null!;
 
     public TrayContext()
     {
@@ -63,7 +65,7 @@ public class TrayContext : ApplicationContext
                 ToolTipIcon.Error);
         }
 
-        // Populate GPU submenu now that the fetcher (and LHM) is ready
+        // Populate device submenus now that the fetcher (and LHM) is ready
         PopulateGpuMenu();
     }
 
@@ -104,8 +106,11 @@ public class TrayContext : ApplicationContext
             Checked = _config.ShowSystemProcesses,
         };
 
-        // GPU submenu — populated later in PopulateGpuMenu() once LHM is ready
-        _gpuMenuItem = new ToolStripMenuItem("🎮 Select GPU") { Enabled = false };
+        // GPU submenu — populated later once LHM is ready
+        _gpuMenuItem = new ToolStripMenuItem("🎮 Select GPU")     { Enabled = false };
+        // NIC submenu — refreshed live each time it's opened
+        _nicMenuItem = new ToolStripMenuItem("📡 Select Network") { Enabled = true  };
+        _nicMenuItem.DropDownOpening += (_, _) => RefreshNicMenu();
 
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
@@ -116,6 +121,7 @@ public class TrayContext : ApplicationContext
             new ToolStripMenuItem("📄 View Report",  null, (_, _) => OpenReport()),
             sysProcItem,
             _gpuMenuItem,
+            _nicMenuItem,
             _startupItem,
             new ToolStripSeparator(),
             new ToolStripMenuItem("✖ Exit",          null, (_, _) => ExitApp()),
@@ -167,10 +173,54 @@ public class TrayContext : ApplicationContext
     {
         _config.PreferredGpuName = gpuName;
         _config.Save();
-
-        // Update checkmarks in the submenu
         foreach (ToolStripMenuItem item in _gpuMenuItem.DropDownItems)
             item.Checked = string.Equals(item.Text, gpuName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Rebuilds the NIC submenu fresh every time it's opened
+    private void RefreshNicMenu()
+    {
+        _nicMenuItem.DropDownItems.Clear();
+
+        var nics = NetworkInterface.GetAllNetworkInterfaces()
+            .Where(n => n.OperationalStatus == OperationalStatus.Up
+                     && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+            .Select(n => n.Name)
+            .ToList();
+
+        if (nics.Count == 0)
+        {
+            _nicMenuItem.DropDownItems.Add(new ToolStripMenuItem("No adapters connected") { Enabled = false });
+            return;
+        }
+
+        // "All adapters" — restores original sum-all behaviour
+        var allItem = new ToolStripMenuItem("All adapters")
+        {
+            CheckOnClick = false,
+            Checked      = string.IsNullOrWhiteSpace(_config.PreferredNetworkAdapterName),
+        };
+        allItem.Click += (_, _) => SelectNic(null);
+        _nicMenuItem.DropDownItems.Add(allItem);
+        _nicMenuItem.DropDownItems.Add(new ToolStripSeparator());
+
+        foreach (var nicName in nics)
+        {
+            var name = nicName;
+            var item = new ToolStripMenuItem(name)
+            {
+                CheckOnClick = false,
+                Checked      = string.Equals(_config.PreferredNetworkAdapterName, name, StringComparison.OrdinalIgnoreCase),
+            };
+            item.Click += (_, _) => SelectNic(name);
+            _nicMenuItem.DropDownItems.Add(item);
+        }
+    }
+
+    private void SelectNic(string? nicName)
+    {
+        _config.PreferredNetworkAdapterName = nicName;
+        _config.Save();
     }
 
     private void ToggleStartup()

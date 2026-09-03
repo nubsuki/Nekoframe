@@ -576,14 +576,31 @@ public class StatsFetcher : IDisposable
         return fans;
     }
 
+    // Returns OS NIC names
+    public IReadOnlyList<string> GetAvailableNetworkAdapters() =>
+        NetworkInterface.GetAllNetworkInterfaces()
+            .Where(n => n.OperationalStatus == OperationalStatus.Up
+                     && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+            .Select(n => n.Name)
+            .ToList();
+
     private NetworkStats GetNetworkStats()
     {
-        // LHM exposes Throughput sensors in bytes/sec — sum across all NICs and convert to KB/s
+        var preferred = _config.PreferredNetworkAdapterName;
+
+        // LHM exposes Throughput sensors in bytes/sec — convert to KB/s.
         float? lhmUp = null, lhmDown = null;
 
         foreach (var hw in _computer.Hardware)
         {
             if (hw.HardwareType != HardwareType.Network) continue;
+
+            // Filter by preferred adapter if one is selected
+            if (!string.IsNullOrWhiteSpace(preferred)
+                && !hw.Name.Contains(preferred, StringComparison.OrdinalIgnoreCase)
+                && !preferred.Contains(hw.Name, StringComparison.OrdinalIgnoreCase))
+                continue;
+
             foreach (var sensor in hw.Sensors)
             {
                 if (sensor.SensorType != SensorType.Throughput || sensor.Value == null) continue;
@@ -626,13 +643,20 @@ public class StatsFetcher : IDisposable
         };
     }
 
-    private static void SampleNetworkBytes(out long totalSent, out long totalReceived)
+    private void SampleNetworkBytes(out long totalSent, out long totalReceived)
     {
+        var preferred = _config.PreferredNetworkAdapterName;
         totalSent = 0; totalReceived = 0;
         foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
         {
             if (nic.OperationalStatus != OperationalStatus.Up) continue;
             if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+
+            // Filter by preferred adapter if one is selected
+            if (!string.IsNullOrWhiteSpace(preferred)
+                && !nic.Name.Equals(preferred, StringComparison.OrdinalIgnoreCase))
+                continue;
+
             var stats = nic.GetIPv4Statistics();
             totalSent     += stats.BytesSent;
             totalReceived += stats.BytesReceived;

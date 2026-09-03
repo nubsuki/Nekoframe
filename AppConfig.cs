@@ -10,9 +10,8 @@ public class AppConfig
 
     public int WebSocketPort { get; set; } = 3069;
     public bool ShowSystemProcesses { get; set; } = false;
-
-    // GPU to export via WebSocket. null = first GPU found. Set by the tray menu.
     public string? PreferredGpuName { get; set; } = null;
+    public string? PreferredNetworkAdapterName { get; set; } = null;
 
     public static AppConfig Load()
     {
