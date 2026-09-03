@@ -112,19 +112,22 @@ public class TrayContext : ApplicationContext
         _nicMenuItem = new ToolStripMenuItem("📡 Select Network") { Enabled = true  };
         _nicMenuItem.DropDownOpening += (_, _) => RefreshNicMenu();
 
+        var ver = typeof(TrayContext).Assembly.GetName().Version;
+        string title = ver != null ? $"🐱 Nekoframe v{ver.Major}.{ver.Minor}.{ver.Build}" : "🐱 Nekoframe";
+
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
         {
-            new ToolStripMenuItem("🐱 Nekoframe")                                          { Enabled = false },
-            new ToolStripMenuItem($"ws://localhost:{_config.WebSocketPort}")               { Enabled = false, Font = new Font("Segoe UI", 7.5f) },
+            new ToolStripMenuItem(title) { Enabled = false },
+            new ToolStripMenuItem($"ws://localhost:{_config.WebSocketPort}") { Enabled = false, Font = new Font("Segoe UI", 7.5f) },
             new ToolStripSeparator(),
-            new ToolStripMenuItem("📄 View Report",  null, (_, _) => OpenReport()),
+            new ToolStripMenuItem("📄 View Report", null, (_, _) => OpenReport()),
             sysProcItem,
             _gpuMenuItem,
             _nicMenuItem,
             _startupItem,
             new ToolStripSeparator(),
-            new ToolStripMenuItem("✖ Exit",          null, (_, _) => ExitApp()),
+            new ToolStripMenuItem("✖ Exit", null, (_, _) => ExitApp()),
         });
 
         return menu;

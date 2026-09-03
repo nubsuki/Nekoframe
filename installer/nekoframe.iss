@@ -2,7 +2,7 @@
 
 #define AppName      "Nekoframe"
 #define AppVersion   "1.0.0"
-#define AppPublisher "Nekoframe"
+#define AppPublisher "Nubsuki"
 #define AppExe       "Nekoframe.exe"
 #define TaskName     "Nekoframe System Stats"
 #define PublishDir   "..\bin\Release\net8.0-windows\win-x64\publish"
