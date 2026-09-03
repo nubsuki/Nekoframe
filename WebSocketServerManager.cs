@@ -26,7 +26,7 @@ public class WebSocketServerManager : IDisposable
         NullValueHandling = NullValueHandling.Include,
     };
 
-    public WebSocketServerManager(string address = "ws://0.0.0.0:3069")
+    public WebSocketServerManager(string address = "ws://127.0.0.1:3069")
     {
         // Suppress Fleck's default verbose console logging
         FleckLog.LogAction = (level, message, ex) =>

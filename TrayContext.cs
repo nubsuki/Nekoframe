@@ -50,7 +50,7 @@ public class TrayContext : ApplicationContext
 
         try
         {
-            _wsServer = new WebSocketServerManager($"ws://0.0.0.0:{_config.WebSocketPort}");
+            _wsServer = new WebSocketServerManager($"ws://127.0.0.1:{_config.WebSocketPort}");
             _wsServer.Start(_fetcher!, broadcastIntervalMs: 1000);
             _trayIcon.Text = $"Nekoframe — ws://localhost:{_config.WebSocketPort}";
             ShowBalloon("Nekoframe Running",
