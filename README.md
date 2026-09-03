@@ -1,6 +1,6 @@
 # Nekoframe
 
-![Nekoframe Preview](preview.png)
+![Nekoframe Preview](new_preview.png)
 
 <div align="center">
   <a href="https://youtu.be/lnRToLpockw">
