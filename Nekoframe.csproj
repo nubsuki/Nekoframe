@@ -13,7 +13,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Authors>Nubsuki</Authors>
     <Description>A lightweight, background Windows service that collects real-time hardware telemetry</Description>
-    <Version>1.2.1</Version>
+    <Version>1.2.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
