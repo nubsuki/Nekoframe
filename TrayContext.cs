@@ -12,11 +12,12 @@ public class TrayContext : ApplicationContext
     private readonly AppConfig _config;
     private StatsFetcher? _fetcher;
     private WebSocketServerManager? _wsServer;
-    private ToolStripMenuItem _startupItem = null!;
-    private ToolStripMenuItem _gpuMenuItem  = null!;
-    private ToolStripMenuItem _nicMenuItem  = null!;
-    private ToolStripMenuItem _sysProcItem  = null!;
-    private ToolStripMenuItem _updateItem   = null!;
+    private ToolStripMenuItem _startupItem   = null!;
+    private ToolStripMenuItem _gpuMenuItem   = null!;
+    private ToolStripMenuItem _nicMenuItem   = null!;
+    private ToolStripMenuItem _sysProcItem   = null!;
+    private ToolStripMenuItem _storageItem   = null!;
+    private ToolStripMenuItem _updateItem    = null!;
     private string? _latestReleaseUrl;
 
     public TrayContext()
@@ -108,26 +109,32 @@ public class TrayContext : ApplicationContext
 
     private ContextMenuStrip BuildContextMenu()
     {
-        _startupItem = new ToolStripMenuItem("🚀 Start with Windows", null, (_, _) => ToggleStartup())
+        _startupItem = new ToolStripMenuItem("Start with Windows", null, (_, _) => ToggleStartup())
         {
             Checked = StartupRegistrar.TaskExists(),
         };
 
-        _sysProcItem = new ToolStripMenuItem("⚙ Show System Processes", null, (_, _) => ToggleSystemProcesses())
+        _sysProcItem = new ToolStripMenuItem("Show System Processes", null, (_, _) => ToggleSystemProcesses())
         {
             Checked = _config.ShowSystemProcesses,
         };
 
+        _storageItem = new ToolStripMenuItem("Storage Monitoring", null, (_, _) => ToggleStorageMonitoring())
+        {
+            Checked      = _config.StorageMonitoringEnabled,
+            ToolTipText  = "Disable driver temperatures via S.M.A.R.T.",
+        };
+
         // GPU submenu — populated later once LHM is ready
-        _gpuMenuItem = new ToolStripMenuItem("🎮 Select GPU")     { Enabled = false };
+        _gpuMenuItem = new ToolStripMenuItem("Select GPU")     { Enabled = false };
         // NIC submenu — refreshed live each time it's opened
-        _nicMenuItem = new ToolStripMenuItem("📡 Select Network") { Enabled = true  };
+        _nicMenuItem = new ToolStripMenuItem("Select Network") { Enabled = true  };
         _nicMenuItem.DropDownOpening += (_, _) => RefreshNicMenu();
 
-        _updateItem = new ToolStripMenuItem("🔄 Check for Updates", null, (_, _) => OnUpdateItemClicked());
+        _updateItem = new ToolStripMenuItem("Check for Updates", null, (_, _) => OnUpdateItemClicked());
 
         var ver = typeof(TrayContext).Assembly.GetName().Version;
-        string title = ver != null ? $"🐱 Nekoframe v{ver.Major}.{ver.Minor}.{ver.Build}" : "🐱 Nekoframe";
+        string title = ver != null ? $"Nekoframe v{ver.Major}.{ver.Minor}.{ver.Build}" : "Nekoframe";
 
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
@@ -136,13 +143,14 @@ public class TrayContext : ApplicationContext
             new ToolStripMenuItem($"ws://localhost:{_config.WebSocketPort}") { Enabled = false, Font = new Font("Segoe UI", 7.5f) },
             new ToolStripSeparator(),
             _updateItem,
-            new ToolStripMenuItem("📄 View Report", null, (_, _) => OpenReport()),
+            new ToolStripMenuItem("View Report", null, (_, _) => OpenReport()),
             _sysProcItem,
+            _storageItem,
             _gpuMenuItem,
             _nicMenuItem,
             _startupItem,
             new ToolStripSeparator(),
-            new ToolStripMenuItem("✖ Exit", null, (_, _) => ExitApp()),
+            new ToolStripMenuItem("Exit", null, (_, _) => ExitApp()),
         });
 
         return menu;
@@ -270,6 +278,15 @@ public class TrayContext : ApplicationContext
         _sysProcItem.Checked = _config.ShowSystemProcesses;
     }
 
+    private void ToggleStorageMonitoring()
+    {
+        _config.StorageMonitoringEnabled = !_config.StorageMonitoringEnabled;
+        _config.Save();
+        // Silently restart so the new IsStorageEnabled value takes effect immediately.
+        _trayIcon.Visible = false;
+        Application.Restart();
+    }
+
     private void OnBalloonClicked()
     {
         if (!string.IsNullOrEmpty(_latestReleaseUrl))
@@ -284,11 +301,11 @@ public class TrayContext : ApplicationContext
             return;
         }
 
-        _updateItem.Text = "🔄 Checking for updates…";
+        _updateItem.Text = "Checking for updates…";
         await CheckForUpdatesAsync(manual: true);
 
         if (string.IsNullOrEmpty(_latestReleaseUrl))
-            _updateItem.Text = "🔄 Check for Updates";
+            _updateItem.Text = "Check for Updates";
     }
 
     private async Task CheckForUpdatesAsync(bool manual)
@@ -301,7 +318,7 @@ public class TrayContext : ApplicationContext
             if (result.HasUpdate && result.LatestVersion != null)
             {
                 _latestReleaseUrl = result.ReleaseUrl;
-                _updateItem.Text = $"⭐ Update Available (v{result.LatestVersion.Major}.{result.LatestVersion.Minor}.{result.LatestVersion.Build})";
+                _updateItem.Text = $"Update Available (v{result.LatestVersion.Major}.{result.LatestVersion.Minor}.{result.LatestVersion.Build})";
                 _updateItem.Font = new Font(_updateItem.Font, FontStyle.Bold);
 
                 ShowBalloon("Nekoframe Update Available",

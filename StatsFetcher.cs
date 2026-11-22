@@ -22,6 +22,8 @@ public class StatsFetcher : IDisposable
     private readonly Dictionary<int, (TimeSpan TotalTime, DateTime Timestamp)> _processCpuHistory = new();
     private readonly AppConfig _config;
 
+    private DateTime _lastStorageUpdate = DateTime.MinValue;
+
     public StatsFetcher(AppConfig config)
     {
         _config = config;
@@ -30,7 +32,7 @@ public class StatsFetcher : IDisposable
             IsCpuEnabled = true,
             IsGpuEnabled = true,
             IsMemoryEnabled = true,
-            IsStorageEnabled = true,
+            IsStorageEnabled = config.StorageMonitoringEnabled,
             IsNetworkEnabled = true,
             IsMotherboardEnabled = false,
             IsControllerEnabled = false,
@@ -67,12 +69,21 @@ public class StatsFetcher : IDisposable
 
     private void UpdateAll()
     {
+        bool refreshStorage = _config.StorageMonitoringEnabled
+            && (DateTime.UtcNow - _lastStorageUpdate).TotalSeconds >= _config.StorageUpdateIntervalSeconds;
+
         foreach (var hardware in _computer.Hardware)
         {
+            if (hardware.HardwareType == HardwareType.Storage && !refreshStorage)
+                continue;
+
             hardware.Update();
             foreach (var sub in hardware.SubHardware)
                 sub.Update();
         }
+
+        if (refreshStorage)
+            _lastStorageUpdate = DateTime.UtcNow;
     }
 
     private List<ProcessStats> GetTopProcesses(int count = 10)
