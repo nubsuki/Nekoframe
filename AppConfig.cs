@@ -13,6 +13,7 @@ public class AppConfig
     public string? PreferredGpuName { get; set; } = null;
     public string? PreferredNetworkAdapterName { get; set; } = null;
     public bool StorageMonitoringEnabled { get; set; } = true;
+    public bool IgnoreHdds { get; set; } = true;
     public int StorageUpdateIntervalSeconds { get; set; } = 60;
 
     public static AppConfig Load()

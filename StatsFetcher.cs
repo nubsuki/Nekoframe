@@ -23,6 +23,9 @@ public class StatsFetcher : IDisposable
     private readonly AppConfig _config;
 
     private DateTime _lastStorageUpdate = DateTime.MinValue;
+    private readonly HashSet<int> _externalDriveIndices = new();
+    private readonly HashSet<int> _hddDriveIndices = new();
+    private readonly HashSet<string> _hddDriveNames = new(StringComparer.OrdinalIgnoreCase);
 
     public StatsFetcher(AppConfig config)
     {
@@ -40,6 +43,7 @@ public class StatsFetcher : IDisposable
             IsPsuEnabled = false,
         };
         _computer.Open();
+        DetectExcludedDrives();
         UpdateAll();
 
         SampleNetworkBytes(out _lastNetBytesSent, out _lastNetBytesReceived);
@@ -74,8 +78,15 @@ public class StatsFetcher : IDisposable
 
         foreach (var hardware in _computer.Hardware)
         {
-            if (hardware.HardwareType == HardwareType.Storage && !refreshStorage)
-                continue;
+            if (hardware.HardwareType == HardwareType.Storage)
+            {
+                if (!refreshStorage)
+                    continue;
+
+                // Automatically exclude USB/external enclosures and mechanical HDDs
+                if (ShouldExcludeDrive(hardware))
+                    continue;
+            }
 
             hardware.Update();
             foreach (var sub in hardware.SubHardware)
@@ -84,6 +95,77 @@ public class StatsFetcher : IDisposable
 
         if (refreshStorage)
             _lastStorageUpdate = DateTime.UtcNow;
+    }
+
+    // Identifies USB/external enclosures and mechanical HDDs via Windows Storage Management.
+    private void DetectExcludedDrives()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                @"root\Microsoft\Windows\Storage",
+                "SELECT DeviceId, FriendlyName, MediaType, BusType FROM MSFT_PhysicalDisk");
+
+            foreach (ManagementObject disk in searcher.Get())
+            {
+                var deviceIdStr = disk["DeviceId"]?.ToString();
+                var name = disk["FriendlyName"]?.ToString()?.Trim();
+                var mediaType = disk["MediaType"] != null ? Convert.ToInt32(disk["MediaType"]) : 0;
+                var busType = disk["BusType"] != null ? Convert.ToInt32(disk["BusType"]) : 0;
+
+                if (!int.TryParse(deviceIdStr, out int devId)) continue;
+
+                // BusType 7 = USB (External enclosures, flash drives, backup disks)
+                if (busType == 7)
+                    _externalDriveIndices.Add(devId);
+
+                // MediaType 3 = HDD
+                if (mediaType == 3)
+                {
+                    _hddDriveIndices.Add(devId);
+                    if (!string.IsNullOrWhiteSpace(name))
+                        _hddDriveNames.Add(name);
+                }
+            }
+        }
+        catch { }
+    }
+
+    private bool ShouldExcludeDrive(IHardware hw)
+    {
+        int? driveIndex = ExtractDriveIndex(hw.Identifier);
+
+        // External/USB drives are always ignored
+        if (driveIndex.HasValue && _externalDriveIndices.Contains(driveIndex.Value))
+            return true;
+
+        // Mechanical HDDs are ignored when IgnoreHdds is enabled
+        if (_config.IgnoreHdds)
+        {
+            if (driveIndex.HasValue && _hddDriveIndices.Contains(driveIndex.Value))
+                return true;
+
+            if (_hddDriveNames.Contains(hw.Name))
+                return true;
+
+            foreach (var name in _hddDriveNames)
+            {
+                if (hw.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
+                    || name.Contains(hw.Name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static int? ExtractDriveIndex(Identifier identifier)
+    {
+        var str = identifier.ToString();
+        var segments = str.Trim('/').Split('/');
+        if (segments.Length > 0 && int.TryParse(segments[^1], out int index))
+            return index;
+        return null;
     }
 
     private List<ProcessStats> GetTopProcesses(int count = 10)
@@ -519,6 +601,9 @@ public class StatsFetcher : IDisposable
         var result = new List<StorageStats>();
         foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Storage))
         {
+            if (ShouldExcludeDrive(hw))
+                continue;
+
             var tempSensor = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature);
             float? roundedTemp = tempSensor?.Value.HasValue == true ? MathF.Round(tempSensor.Value.Value, 1) : null;
             result.Add(new StorageStats { Name = hw.Name, TempCelsius = roundedTemp });

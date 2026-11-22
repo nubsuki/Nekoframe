@@ -14,7 +14,7 @@ obj/
 publish/
 out/
 
-## Compiled installer output (run build_installer.ps1 to regenerate)
+## Compiled installer output
 dist/
 
 ## NuGet
@@ -32,12 +32,12 @@ desktop.ini
 *.log
 *.tmp
 
-## Compiled binaries (don't commit — build fresh with dotnet build)
+## Compiled binaries
 *.exe
 *.dll
 *.pdb
 
-## Environment / secrets (if you ever add config)
+## Environment / secrets
 *.env
 appsettings.*.json
 !appsettings.json

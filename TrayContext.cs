@@ -15,9 +15,10 @@ public class TrayContext : ApplicationContext
     private ToolStripMenuItem _startupItem   = null!;
     private ToolStripMenuItem _gpuMenuItem   = null!;
     private ToolStripMenuItem _nicMenuItem   = null!;
-    private ToolStripMenuItem _sysProcItem   = null!;
-    private ToolStripMenuItem _storageItem   = null!;
-    private ToolStripMenuItem _updateItem    = null!;
+    private ToolStripMenuItem _sysProcItem    = null!;
+    private ToolStripMenuItem _storageItem    = null!;
+    private ToolStripMenuItem _ignoreHddsItem = null!;
+    private ToolStripMenuItem _updateItem     = null!;
     private string? _latestReleaseUrl;
 
     public TrayContext()
@@ -119,10 +120,17 @@ public class TrayContext : ApplicationContext
             Checked = _config.ShowSystemProcesses,
         };
 
-        _storageItem = new ToolStripMenuItem("Storage Monitoring", null, (_, _) => ToggleStorageMonitoring())
+        _storageItem = new ToolStripMenuItem("Storage temperature", null, (_, _) => ToggleStorageMonitoring())
         {
-            Checked      = _config.StorageMonitoringEnabled,
-            ToolTipText  = "Disable driver temperatures via S.M.A.R.T.",
+            Checked     = _config.StorageMonitoringEnabled,
+            ToolTipText = "Storage temperatures via S.M.A.R.T.",
+        };
+
+        _ignoreHddsItem = new ToolStripMenuItem("Ignore HDDs", null, (_, _) => ToggleIgnoreHdds())
+        {
+            Checked     = _config.IgnoreHdds,
+            Enabled     = _config.StorageMonitoringEnabled,
+            ToolTipText = "Skips polling from mechanical HDDs",
         };
 
         // GPU submenu — populated later once LHM is ready
@@ -146,6 +154,7 @@ public class TrayContext : ApplicationContext
             new ToolStripMenuItem("View Report", null, (_, _) => OpenReport()),
             _sysProcItem,
             _storageItem,
+            _ignoreHddsItem,
             _gpuMenuItem,
             _nicMenuItem,
             _startupItem,
@@ -285,6 +294,13 @@ public class TrayContext : ApplicationContext
         // Silently restart so the new IsStorageEnabled value takes effect immediately.
         _trayIcon.Visible = false;
         Application.Restart();
+    }
+
+    private void ToggleIgnoreHdds()
+    {
+        _config.IgnoreHdds = !_config.IgnoreHdds;
+        _config.Save();
+        _ignoreHddsItem.Checked = _config.IgnoreHdds;
     }
 
     private void OnBalloonClicked()
