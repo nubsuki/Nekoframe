@@ -1,5 +1,5 @@
 # build_installer.ps1 — Publishes Nekoframe and compiles the installer.
-# Usage: .\build_installer.ps1
+# Usage: .\build_installer.ps1 - test
 # Requires Inno Setup 6: winget install JRSoftware.InnoSetup
 
 param([string]$Version = "1.0.0")
